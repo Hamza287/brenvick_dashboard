@@ -2,12 +2,12 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import * as jwt from "jwt-decode";
 import { User } from "../models/User";
 import { loginUser, fetchUserById } from "../services/authService";
 
 interface JwtPayload {
-  userId: number;
+  userId?: number;
+  sub?: string; // sometimes backend sends userId in "sub"
   exp: number;
   iat: number;
   [key: string]: any;
@@ -24,20 +24,34 @@ interface AuthContextProps {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
+function decodeJwt<T = any>(token: string): T {
+  try {
+    const base64Payload = token.split(".")[1];
+    const jsonPayload = atob(base64Payload); // works in browser
+    return JSON.parse(jsonPayload);
+  } catch {
+    throw new Error("Invalid token");
+  }
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const router = useRouter();
 
-  // Login
+  // 🔑 Login
   const login = async (username: string, password: string) => {
     try {
       const userData = await loginUser(username, password);
+
+      if (!userData?.token) {
+        throw new Error("Token missing in response");
+      }
+
       setToken(userData.token);
       setUser(userData);
       router.push("/"); // redirect to dashboard
     } catch (err: any) {
-      // Parse ErrorList from authService
       let errorList: string[] = [];
       try {
         errorList = JSON.parse(err.message);
@@ -45,18 +59,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         errorList = [err.message];
       }
       console.error("Login errors:", errorList);
-      throw errorList; // throw array to frontend component
+      throw errorList;
     }
   };
 
-  // Logout
+  // 🚪 Logout
   const logout = () => {
     setToken(null);
     setUser(null);
     router.push("/auth/login");
   };
 
-  // Validate user from token
+  // 🔍 Validate user from token
   const validateUser = async () => {
     if (!token) {
       logout();
@@ -64,13 +78,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const decoded = (jwt as unknown as (token: string) => JwtPayload)(token);
-      const userId = decoded.userId;
+      const decoded = decodeJwt<JwtPayload>(token);
+      const userId = decoded.userId || Number(decoded.sub);
+
+      if (!userId) {
+        throw new Error("Token does not contain userId");
+      }
 
       const userData = await fetchUserById(userId, token);
       setUser(userData);
     } catch (err: any) {
-      // Handle ErrorList from fetchUserById
       let errorList: string[] = [];
       try {
         errorList = JSON.parse(err.message);
@@ -82,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Auto-validate on token change
+  // 🔄 Auto-validate on token change
   useEffect(() => {
     if (token) {
       validateUser();
@@ -90,13 +107,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, validateUser, setUser }}>
+    <AuthContext.Provider
+      value={{ user, token, login, logout, validateUser, setUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Hook to use AuthContext
+// ✅ Hook
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
