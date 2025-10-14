@@ -17,20 +17,27 @@ export default function RoleProtectedRoute({
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      if (!token || !user) {
-        router.push("/auth/login");
-      } else if (!allowedRoles.includes(user.role)) {
-        // If role not permitted → redirect accordingly
-        if (user.role === 0) {
-          window.location.href = "https://example.com/"; // Customer area
-        } else {
-          router.push("/"); // Admin default page
-        }
+    // ✅ Only run checks after loading is finished
+    if (loading) return;
+
+    // ✅ If no user or token → redirect to login
+    if (!token || !user) {
+      router.replace("/auth/login");
+      return;
+    }
+
+    // ✅ If user role not allowed → redirect appropriately
+    if (!allowedRoles.includes(user.role)) {
+      if (user.role === 0) {
+        // Example: redirect customers to a public site
+        window.location.href = "https://example.com/";
+      } else {
+        router.replace("/");
       }
     }
   }, [loading, token, user, allowedRoles, router]);
 
+  // ✅ While loading OR redirecting → show consistent loader
   if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center text-gray-500">
@@ -39,5 +46,6 @@ export default function RoleProtectedRoute({
     );
   }
 
+  // ✅ Render children only if user is valid and allowed
   return <>{children}</>;
 }
