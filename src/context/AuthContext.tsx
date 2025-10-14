@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (userData.role === 1) {
         router.push("/");
       } else if (userData.role === 0) {
-        window.location.href = "https://example.com/";
+        window.location.href = "/customer";
       }
     } catch (err: any) {
       console.error("Login error:", err.message);
