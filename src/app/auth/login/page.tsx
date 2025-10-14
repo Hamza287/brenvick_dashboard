@@ -20,9 +20,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(username, password);
+      await login(username.trim(), password);
+      // navigate after successful login
+      router.push("/");
     } catch (err: any) {
-      setError(err.message || "Login failed");
+      // err is now an Error with message
+      setError(err?.message || "Login failed");
     } finally {
       setLoading(false);
     }

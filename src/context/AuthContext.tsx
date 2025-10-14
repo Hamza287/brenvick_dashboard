@@ -7,7 +7,7 @@ import { loginUser, fetchUserById } from "../services/authService";
 
 interface JwtPayload {
   userId?: number;
-  sub?: string; // sometimes backend sends userId in "sub"
+  sub?: string;
   exp: number;
   iat: number;
   [key: string]: any;
@@ -16,6 +16,7 @@ interface JwtPayload {
 interface AuthContextProps {
   user: User | null;
   token: string | null;
+  loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   validateUser: () => Promise<void>;
@@ -27,7 +28,7 @@ const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 function decodeJwt<T = any>(token: string): T {
   try {
     const base64Payload = token.split(".")[1];
-    const jsonPayload = atob(base64Payload); // works in browser
+    const jsonPayload = atob(base64Payload);
     return JSON.parse(jsonPayload);
   } catch {
     throw new Error("Invalid token");
@@ -37,85 +38,82 @@ function decodeJwt<T = any>(token: string): T {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // 🔑 Login
   const login = async (username: string, password: string) => {
     try {
       const userData = await loginUser(username, password);
 
-      if (!userData?.token) {
-        throw new Error("Token missing in response");
-      }
+      if (!userData?.token) throw new Error("Token missing in response");
+
+      localStorage.setItem("token", userData.token);
+      localStorage.setItem("user", JSON.stringify(userData));
 
       setToken(userData.token);
       setUser(userData);
-      router.push("/"); // redirect to dashboard
-    } catch (err: any) {
-      let errorList: string[] = [];
-      try {
-        errorList = JSON.parse(err.message);
-      } catch {
-        errorList = [err.message];
+
+      if (userData.role === 1) {
+        router.push("/");
+      } else if (userData.role === 0) {
+        window.location.href = "https://example.com/";
       }
-      console.error("Login errors:", errorList);
-      throw errorList;
+    } catch (err: any) {
+      console.error("Login error:", err.message);
+      throw err;
     }
   };
 
-  // 🚪 Logout
   const logout = () => {
     setToken(null);
     setUser(null);
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     router.push("/auth/login");
   };
 
-  // 🔍 Validate user from token
   const validateUser = async () => {
-    if (!token) {
-      logout();
-      return;
-    }
-
     try {
-      const decoded = decodeJwt<JwtPayload>(token);
+      const storedToken = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
+
+      if (!storedToken || !storedUser) {
+        setLoading(false);
+        return;
+      }
+
+      const parsedUser = JSON.parse(storedUser);
+      setToken(storedToken);
+      setUser(parsedUser);
+
+      const decoded = decodeJwt<JwtPayload>(storedToken);
       const userId = decoded.userId || Number(decoded.sub);
 
-      if (!userId) {
-        throw new Error("Token does not contain userId");
+      if (userId) {
+        await fetchUserById(userId, storedToken);
       }
 
-      const userData = await fetchUserById(userId, token);
-      setUser(userData);
-    } catch (err: any) {
-      let errorList: string[] = [];
-      try {
-        errorList = JSON.parse(err.message);
-      } catch {
-        errorList = [err.message];
-      }
-      console.error("Token validation errors:", errorList);
+    } catch (error) {
+      console.error("Token validation failed:", error);
       logout();
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 🔄 Auto-validate on token change
   useEffect(() => {
-    if (token) {
-      validateUser();
-    }
-  }, [token]);
+    validateUser();
+  }, []);
 
   return (
     <AuthContext.Provider
-      value={{ user, token, login, logout, validateUser, setUser }}
+      value={{ user, token, loading, login, logout, validateUser, setUser }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
 
-// ✅ Hook
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
