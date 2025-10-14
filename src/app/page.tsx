@@ -1,14 +1,21 @@
 "use client";
 
-import ProtectedRoute from "../components/ProtectedRoute";
+import RoleProtectedRoute from "../components/ProtectedRoute";
+import Sidebar from "../components/layout/Sidebar";
 
-export default function HomePage() {
+export default function DashboardPage() {
   return (
-    <ProtectedRoute>
-      <div>
-        <h1>Welcome to the Dashboard!</h1>
-        {/* Your main dashboard content goes here */}
+    <RoleProtectedRoute allowedRoles={[1]}>
+      <div className="flex min-h-screen bg-gray-50">
+        {/* Sidebar */}
+        <Sidebar className="h-screen" />
+
+        {/* Main Content */}
+        <main className="flex-1 p-8">
+          <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+          <p className="text-gray-600 mt-2">Welcome, Admin!</p>
+        </main>
       </div>
-    </ProtectedRoute>
+    </RoleProtectedRoute>
   );
 }
