@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Trash2 } from "lucide-react";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 
@@ -20,13 +21,32 @@ export function UploadCard() {
     }
   };
 
+  const handleRemoveImage = () => {
+    setPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   return (
-    <Card className="border-dashed border-2 border-gray-300 hover:border-[var(--brand-red)] flex flex-col items-center justify-center p-4">
+    <Card className="relative border-dashed border-2 border-gray-300 hover:border-[var(--brand-red)] flex flex-col items-center justify-center p-4 group transition-all duration-200">
+      {/* 🗑️ Dustbin Icon (visible on hover when preview exists) */}
+      {preview && (
+        <button
+          onClick={handleRemoveImage}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-white/90 hover:bg-red-500 hover:text-white text-gray-700 p-1.5 rounded-full shadow-sm transition-all"
+          title="Remove image"
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
+
+      {/* Image Preview or Placeholder */}
       {preview ? (
         <img
           src={preview}
           alt="Preview"
-          className="object-contain h-24 mb-2 rounded-md"
+          className="object-contain h-24 mb-2 rounded-md transition-transform group-hover:scale-[1.02]"
         />
       ) : (
         <img
@@ -36,6 +56,7 @@ export function UploadCard() {
         />
       )}
 
+      {/* Hidden File Input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -44,6 +65,7 @@ export function UploadCard() {
         onChange={handleFileChange}
       />
 
+      {/* Upload / Change Button */}
       <Button
         variant="outline"
         className="w-full text-sm py-1"
