@@ -5,7 +5,12 @@ import { Trash2 } from "lucide-react";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 
-export function UploadCard() {
+interface UploadCardProps {
+  /** Called when a file is selected or removed */
+  onFileSelect?: (file: File | null) => void;
+}
+
+export function UploadCard({ onFileSelect }: UploadCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -14,18 +19,18 @@ export function UploadCard() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.[0] || null;
     if (file) {
       const url = URL.createObjectURL(file);
       setPreview(url);
+      onFileSelect?.(file);
     }
   };
 
   const handleRemoveImage = () => {
     setPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    onFileSelect?.(null);
   };
 
   return (
@@ -34,6 +39,7 @@ export function UploadCard() {
       {preview && (
         <button
           onClick={handleRemoveImage}
+          type="button"
           className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-white/90 hover:bg-red-500 hover:text-white text-gray-700 p-1.5 rounded-full shadow-sm transition-all"
           title="Remove image"
         >
@@ -70,6 +76,7 @@ export function UploadCard() {
         variant="outline"
         className="w-full text-sm py-1"
         onClick={handleButtonClick}
+        type="button"
       >
         {preview ? "Change" : "Upload"}
       </Button>
