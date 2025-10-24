@@ -1,11 +1,15 @@
+// models/Order.ts
+
+import { OrderStatus } from "./Enums";
+
 export interface Order {
-  createdAt: string; // ISO date string
-  updatedAt: string; // ISO date string
+  createdAt: string;     // ISO date string
+  updatedAt: string;     // ISO date string
   id: number;
   orderNo: string;
   userId: number;
   email: string;
-  status: number;
+  status: OrderStatus;   // using enum from Enums.ts
   currency: string;
   subtotal: number;
   discountTotal: number;
@@ -19,5 +23,5 @@ export interface Order {
   shippingPostal: string;
   shippingCountry: string;
   notes: string;
-  placedAt: string; // ISO date string
+  placedAt: string;      // ISO date string
 }
