@@ -35,51 +35,72 @@ export default function OrdersPage() {
 
   // ✅ Fetch all data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const filter: Partial<Order> = {
-          createdAt: "2001-01-01T00:00:00Z",
-          updatedAt: "2050-12-31T23:59:59Z",
-        };
-        const allOrders = await searchOrders(filter, token);
-        const pagedOrders = allOrders.slice((page - 1) * pageSize, page * pageSize);
-        setOrders(pagedOrders);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
 
-        const itemPromises = pagedOrders.map(async (o) => {
+      // ✅ Step 1: Get all orders in current page
+      const filter: Partial<Order> = {
+        createdAt: "2001-01-01T00:00:00Z",
+        updatedAt: "2050-12-31T23:59:59Z",
+      };
+      const allOrders = await searchOrders(filter, token);
+      const pagedOrders = allOrders.slice((page - 1) * pageSize, page * pageSize);
+      setOrders(pagedOrders);
+
+      // ✅ Step 2: Fetch all order items for the current page
+      const itemResults = await Promise.all(
+        pagedOrders.map(async (order) => {
           try {
-            const items = await searchOrderItems({ orderId: o.id }, token);
-            return { orderId: o.id, items };
+            const items = await searchOrderItems({ orderId: order.id }, token);
+            return { orderId: order.id, items };
           } catch {
-            return { orderId: o.id, items: [] };
+            return { orderId: order.id, items: [] };
           }
-        });
-        const itemResults = await Promise.all(itemPromises);
-        const itemMap: Record<number, OrderItem[]> = {};
-        itemResults.forEach((r) => (itemMap[r.orderId] = r.items));
-        setOrderItemsMap(itemMap);
+        })
+      );
 
-        const shipmentPromises = pagedOrders.map(async (o) => {
+      const itemMap: Record<number, OrderItem[]> = {};
+      itemResults.forEach((r) => (itemMap[r.orderId] = r.items));
+      setOrderItemsMap(itemMap);
+
+      // ✅ Step 3: Fetch shipment for each order *based on orderId*
+      const shipmentResults = await Promise.all(
+        pagedOrders.map(async (order) => {
           try {
-            const shipments = await searchShipments({ orderId: o.id }, token);
-            return { orderId: o.id, shipment: shipments[0] || null };
-          } catch {
-            return { orderId: o.id, shipment: null };
-          }
-        });
-        const shipmentResults = await Promise.all(shipmentPromises);
-        const shipmentMapLocal: Record<number, Shipment | null> = {};
-        shipmentResults.forEach((r) => (shipmentMapLocal[r.orderId] = r.shipment));
-        setShipmentMap(shipmentMapLocal);
-      } catch (err) {
-        console.error("❌ Error fetching order data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+            const shipments = await searchShipments({ orderId: order.id }, token);
 
-    fetchData();
-  }, [page]);
+            // ⚙️ Optional: pick the latest shipment if multiple exist
+            const shipment =
+              shipments && shipments.length > 0
+                ? shipments.sort(
+                    (a, b) =>
+                      new Date(b.shippedAt || "").getTime() -
+                      new Date(a.shippedAt || "").getTime()
+                  )[0]
+                : null;
+
+            return { orderId: order.id, shipment };
+          } catch (err) {
+            console.warn(`⚠️ Failed to fetch shipment for order ${order.id}`, err);
+            return { orderId: order.id, shipment: null };
+          }
+        })
+      );
+
+      const shipmentMapLocal: Record<number, Shipment | null> = {};
+      shipmentResults.forEach((r) => (shipmentMapLocal[r.orderId] = r.shipment));
+      setShipmentMap(shipmentMapLocal);
+    } catch (err) {
+      console.error("❌ Error fetching orders data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [page, token]);
+
 
   const handleShipmentStatusChange = async (orderId: number, newStatus: ShipmentStatus) => {
     const shipment = shipmentMap[orderId];
