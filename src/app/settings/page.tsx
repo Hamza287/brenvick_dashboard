@@ -5,7 +5,7 @@ import Sidebar from "../../components/layout/Sidebar";
 
 export default function SettingsPage() {
   return (
-    <RoleProtectedRoute allowedRoles={[1]}>
+    <RoleProtectedRoute allowedRoles={["admin"]}>
       <div className="flex min-h-screen bg-gray-50">
         {/* Sidebar */}
         <Sidebar className="h-screen" />
