@@ -12,7 +12,8 @@ export interface Product {
   price: number;
   compareAtPrice: number;
   brand: string;
-  category: string;
+  categoryId: number; // 🆕 changed from category: string
+  color: string;
   attributes: ProductAttributes;
   stockOnHand: number;
   stockReserved: number;

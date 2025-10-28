@@ -18,7 +18,7 @@ export default function AddProductPage() {
     price: 0,
     compareAtPrice: 0,
     brand: "",
-    category: "",
+    categoryId: 0,
     attributes: {},
     stockOnHand: 0,
     stockReserved: 0,
@@ -27,6 +27,13 @@ export default function AddProductPage() {
 
   const [images, setImages] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // categoryId <-> category string mapping
+  const categoryMap: Record<number, string> = {
+    1: "watch",
+    2: "earbud",
+    3: "accessories",
+  };
 
   const handleChange = (key: keyof Product, value: any) => {
     setProduct((prev) => ({ ...prev, [key]: value }));
@@ -46,12 +53,15 @@ export default function AddProductPage() {
       const token = localStorage.getItem("token") || "";
       if (!token) throw new Error("No authorization token found");
 
+      // ✅ Convert categoryId -> category string for backend
+      const categoryString = categoryMap[product.categoryId || 0] || "";
+
       // ✅ prepare form-data for backend /api/products
       const formData = new FormData();
       formData.append("name", product.name || "");
       formData.append("description", product.description || "");
       formData.append("price", product.price?.toString() || "0");
-      formData.append("category", product.category || "");
+      formData.append("category", categoryString); // backend expects category string
       formData.append("stock", product.stockOnHand?.toString() || "0");
       formData.append("colors", "black,silver,gold");
 
@@ -72,7 +82,7 @@ export default function AddProductPage() {
         price: 0,
         compareAtPrice: 0,
         brand: "",
-        category: "",
+        categoryId: 0,
         attributes: {},
         stockOnHand: 0,
         stockReserved: 0,
@@ -94,16 +104,6 @@ export default function AddProductPage() {
         <main className="flex-1 p-8 flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Add New Product</h1>
-            <select
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--brand-red)] focus:border-[var(--brand-red)] text-gray-900 placeholder:text-gray-700"
-              value={product.category}
-              onChange={(e) => handleChange("category", e.target.value)}
-            >
-              <option value="">Select Category</option>
-              <option value="watch">Watch</option>
-              <option value="earbud">Earbud</option>
-              <option value="accessories">Accessories</option>
-            </select>
           </div>
 
           <div className="flex justify-center w-full">
@@ -165,22 +165,22 @@ export default function AddProductPage() {
                     />
                   </div>
 
-                  {/* ✅ Category Dropdown */}
+                  {/* ✅ Category Dropdown - fully working */}
                   <div>
                     <label className="block text-sm font-medium text-gray-800 mb-2">
                       Category
                     </label>
                     <select
                       className="border border-gray-300 rounded-md px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--brand-red)] focus:border-[var(--brand-red)] text-gray-900 placeholder:text-gray-700"
-                      value={product.category}
+                      value={product.categoryId}
                       onChange={(e) =>
-                        handleChange("category", e.target.value.toLowerCase())
+                        handleChange("categoryId", parseInt(e.target.value))
                       }
                     >
-                      <option value="">Select Category</option>
-                      <option value="watch">Watch</option>
-                      <option value="earbud">Earbud</option>
-                      <option value="accessories">Accessories</option>
+                      <option value={0}>Select Category</option>
+                      <option value={1}>Watch</option>
+                      <option value={2}>Earbud</option>
+                      <option value={3}>Accessories</option>
                     </select>
                   </div>
                 </div>

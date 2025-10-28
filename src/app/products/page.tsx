@@ -56,7 +56,7 @@ export default function ProductsPage() {
                     <div>
                       <p className="font-semibold text-gray-800">{p.name}</p>
                       <p className="text-sm text-gray-500">
-                        {p.category} | {p.brand} | Stock: {p.stockOnHand}
+                        {p.categoryId} | {p.brand} | Stock: {p.stockOnHand}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
