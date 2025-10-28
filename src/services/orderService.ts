@@ -1,78 +1,57 @@
 import { api } from "./api";
 import { Order } from "../models/Order";
-import { GenericResponse } from "../models/GenericResponse";
+
+interface GetOrdersResponse {
+  success: boolean;
+  count: number;
+  orders: Order[];
+}
+
+interface SingleOrderResponse {
+  success: boolean;
+  order: Order;
+}
 
 /**
- * ✅ Create order
+ * ✅ Get all orders (Admin only)
  */
-export const createOrder = async (order: Partial<Order>, token: string): Promise<Order> => {
-  const res = await api.post<GenericResponse<Order>>("/api/Order", order, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Order creation failed");
-
-  return data.result;
+export const getOrders = async (): Promise<Order[]> => {
+  const res = await api.get<GetOrdersResponse>("/orders");
+  if (!res.data.success) throw new Error("Failed to fetch orders");
+  return res.data.orders;
 };
 
 /**
- * ✅ Read order by ID
+ * ✅ Get order by ID
  */
-export const fetchOrderById = async (id: number, token: string): Promise<Order> => {
-  const res = await api.get<GenericResponse<Order>>(`/api/Order/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Order fetch failed");
-
-  return data.result;
+export const getOrderById = async (id: string): Promise<Order> => {
+  const res = await api.get<SingleOrderResponse>(`/orders/${id}`);
+  if (!res.data.success) throw new Error("Failed to fetch order");
+  return res.data.order;
 };
 
 /**
- * ✅ Update order
+ * ✅ Create a new order
  */
-export const updateOrder = async (order: Partial<Order>, token: string): Promise<Order> => {
-  const res = await api.put<GenericResponse<Order>>("/api/Order", order, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Order update failed");
-
-  return data.result;
+export const createOrder = async (order: Partial<Order>): Promise<Order> => {
+  const res = await api.post<SingleOrderResponse>("/orders", order);
+  if (!res.data.success) throw new Error("Failed to create order");
+  return res.data.order;
 };
 
 /**
- * ✅ Delete order
+ * ✅ Update an order
  */
-export const deleteOrder = async (id: number, token: string): Promise<Order> => {
-  const res = await api.delete<GenericResponse<Order>>(`/api/Order/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Order delete failed");
-
-  return data.result;
+export const updateOrder = async (id: string, order: Partial<Order>): Promise<Order> => {
+  const res = await api.put<SingleOrderResponse>(`/orders/${id}`, order);
+  if (!res.data.success) throw new Error("Failed to update order");
+  return res.data.order;
 };
 
 /**
- * ✅ Search orders
+ * ✅ Delete an order
  */
-export const searchOrders = async (filter: Partial<Order>, token: string): Promise<Order[]> => {
-  const res = await api.post<GenericResponse<Order[]>>("/api/Order/search", filter, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Order search failed");
-
-  return data.result;
+export const deleteOrder = async (id: string): Promise<void> => {
+  const res = await api.delete(`/orders/${id}`);
+  if (!res.data.success) throw new Error("Failed to delete order");
 };

@@ -1,78 +1,56 @@
 import { api } from "./api";
 import { Product } from "../models/Product";
-import { GenericResponse } from "../models/GenericResponse";
+
+
+export const createProduct = async (
+  formData: FormData,
+  token: string
+): Promise<any> => {
+  try {
+    const res = await api.post("/products", formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data;
+  } catch (error: any) {
+    console.error("❌ Product creation failed:", error);
+    throw new Error(error.response?.data?.message || "Failed to create product");
+  }
+};
+
 
 /**
- * ✅ Create product
+ * ✅ Get all products (public)
  */
-export const createProduct = async (product: Partial<Product>, token: string): Promise<Product> => {
-  const res = await api.post<GenericResponse<Product>>("/api/Product", product, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
+export const getAllProducts = async (): Promise<Product[]> => {
+  const res = await api.get("/products");
   const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Product creation failed");
 
-  return data.result;
+  if (!data.success) throw new Error(data.message || "Failed to fetch products");
+  return data.products;
 };
 
 /**
- * ✅ Read product by ID
+ * ✅ Get product by ID
  */
-export const fetchProductById = async (id: number, token: string): Promise<Product> => {
-  const res = await api.get<GenericResponse<Product>>(`/api/Product/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
+export const getProductById = async (id: string): Promise<Product> => {
+  const res = await api.get(`/products/${id}`);
   const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Product fetch failed");
 
-  return data.result;
+  if (!data.success) throw new Error(data.message || "Product not found");
+  return data.product;
 };
 
 /**
- * ✅ Update product
+ * ✅ Delete product (admin only)
  */
-export const updateProduct = async (product: Partial<Product>, token: string): Promise<Product> => {
-  const res = await api.put<GenericResponse<Product>>("/api/Product", product, {
+export const deleteProduct = async (id: string, token: string): Promise<void> => {
+  const res = await api.delete(`/products/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Product update failed");
-
-  return data.result;
-};
-
-/**
- * ✅ Delete product
- */
-export const deleteProduct = async (id: number, token: string): Promise<Product> => {
-  const res = await api.delete<GenericResponse<Product>>(`/api/Product/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Product delete failed");
-
-  return data.result;
-};
-
-/**
- * ✅ Search products
- */
-export const searchProducts = async (filter: Partial<Product>, token: string): Promise<Product[]> => {
-  const res = await api.post<GenericResponse<Product[]>>("/api/Product/search", filter, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  const data = res.data;
-  if ((data.errorList ?? []).length > 0) throw new Error(JSON.stringify(data.errorList));
-  if (!data.success || !data.result) throw new Error(data.message || "Product search failed");
-
-  return data.result;
+  if (!data.success) throw new Error(data.message || "Failed to delete product");
 };

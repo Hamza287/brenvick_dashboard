@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 
 interface RoleProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles: number[]; // example: [1] for admin, [0] for customer, [0,1] for both
+  allowedRoles: string[]; // ✅ now string[] (e.g. ["admin"], ["user"], ["admin","user"])
 }
 
 export default function RoleProtectedRoute({
@@ -17,27 +17,27 @@ export default function RoleProtectedRoute({
   const router = useRouter();
 
   useEffect(() => {
-    // ✅ Only run checks after loading is finished
+    // ✅ Wait for auth context to finish loading
     if (loading) return;
 
-    // ✅ If no user or token → redirect to login
+    // ✅ No user or token → force login
     if (!token || !user) {
       router.replace("/auth/login");
       return;
     }
 
-    // ✅ If user role not allowed → redirect appropriately
+    // ✅ Unauthorized role → redirect accordingly
     if (!allowedRoles.includes(user.role)) {
-      if (user.role === 0) {
-        // Example: redirect customers to a public site
+      if (user.role === "user") {
+        // redirect customers to public site (optional)
         window.location.href = "https://example.com/";
       } else {
-        router.replace("/");
+        router.replace("/403"); // you can create an Access Denied page
       }
     }
   }, [loading, token, user, allowedRoles, router]);
 
-  // ✅ While loading OR redirecting → show consistent loader
+  // ✅ Show loader while checking auth
   if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center text-gray-500">
@@ -46,6 +46,6 @@ export default function RoleProtectedRoute({
     );
   }
 
-  // ✅ Render children only if user is valid and allowed
+  // ✅ Render content only when authorized
   return <>{children}</>;
 }

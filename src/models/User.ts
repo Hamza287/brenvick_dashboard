@@ -1,15 +1,9 @@
 // models/User.ts
 export interface User {
-  id: number;
-  username: string;
-  email: string;
-  passwordHash?: string; // usually optional on frontend
-  token?: string;
+  id: string;              // comes as string (MongoDB ObjectId)
   name: string;
-  phone: string;
-  role: number;
-  isActive: boolean;
-  lastLoginAt: string; // ISO string, you can convert to Date if needed
-  createdAt: string;
-  updatedAt: string;
+  email: string;
+  provider: "local" | "google" | "facebook" | string;
+  role: "admin" | "user" | string;
+  token?: string;          // included only after login
 }

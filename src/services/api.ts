@@ -1,34 +1,29 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
-import { API_BASE_URL } from "../utils/constants";
+// services/api.ts
+import axios from "axios";
 
-// Base axios instance (no auth)
-export const api: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+export const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
+  headers: { "Content-Type": "application/json" },
 });
 
-// Authorized instance factory
-export const authorizedApi = (token: string | null) => {
-  const instance = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+// ✅ Add token to all requests
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-  // Attach token if available
-  instance.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
-      if (token) {
-        // ✅ safer way: set header directly
-        config.headers.set("Authorization", `Bearer ${token}`);
-      }
-      return config;
-    },
-    (error) => Promise.reject(error)
-  );
-
-  return instance;
-};
+// ✅ Auto logout if token invalid
+api.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/auth/login";
+    }
+    return Promise.reject(error);
+  }
+);

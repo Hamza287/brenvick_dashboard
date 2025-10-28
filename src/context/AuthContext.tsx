@@ -3,11 +3,10 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "../models/User";
-import { loginUser, fetchUserById } from "../services/authService";
+import { API_BASE_URL } from "../utils/constants";
 
 interface JwtPayload {
-  userId?: number;
-  sub?: string;
+  id?: string;
   exp: number;
   iat: number;
   [key: string]: any;
@@ -41,37 +40,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  /**
+   * ✅ LOGIN FUNCTION
+   * Calls the backend API and stores user/token
+   */
   const login = async (username: string, password: string) => {
     try {
-      const userData = await loginUser(username, password);
+      const res = await fetch(`${API_BASE_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: username, password }),
+      });
 
-      if (!userData?.token) throw new Error("Token missing in response");
+      if (!res.ok) throw new Error("Login failed");
+      const data = await res.json();
 
-      localStorage.setItem("token", userData.token);
-      localStorage.setItem("user", JSON.stringify(userData));
+      if (!data.success) throw new Error(data.message || "Login failed");
 
-      setToken(userData.token);
-      setUser(userData);
+      const loggedUser = data.user as User;
+      const jwtToken = data.token as string;
 
-      if (userData.role === 1) {
-        router.push("/");
-      } else if (userData.role === 0) {
-        window.location.href = "/customer";
+      // ✅ Only admin can login
+      if (loggedUser.role !== "admin") {
+        throw new Error("Access denied. Only admin can login.");
       }
+
+      // ✅ Save to localStorage
+      localStorage.setItem("token", jwtToken);
+      localStorage.setItem("user", JSON.stringify(loggedUser));
+
+      // ✅ Update state
+      setUser(loggedUser);
+      setToken(jwtToken);
+
+      // ✅ Navigate to dashboard
+      router.replace("/");
     } catch (err: any) {
       console.error("Login error:", err.message);
       throw err;
     }
   };
 
+  /**
+   * ✅ LOGOUT FUNCTION
+   */
   const logout = () => {
-    setToken(null);
-    setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    router.push("/auth/login");
+    setUser(null);
+    setToken(null);
+    router.replace("/auth/login");
   };
 
+  /**
+   * ✅ VALIDATE USER (runs on page reload)
+   */
   const validateUser = async () => {
     try {
       const storedToken = localStorage.getItem("token");
@@ -82,17 +105,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      const parsedUser = JSON.parse(storedUser);
-      setToken(storedToken);
+      // ✅ Parse user
+      const parsedUser: User = JSON.parse(storedUser);
       setUser(parsedUser);
+      setToken(storedToken);
 
+      // ✅ Check token expiry
       const decoded = decodeJwt<JwtPayload>(storedToken);
-      const userId = decoded.userId || Number(decoded.sub);
-
-      if (userId) {
-        await fetchUserById(userId, storedToken);
+      const now = Math.floor(Date.now() / 1000);
+      if (decoded.exp && decoded.exp < now) {
+        console.warn("Token expired, logging out...");
+        logout();
       }
-
     } catch (error) {
       console.error("Token validation failed:", error);
       logout();
