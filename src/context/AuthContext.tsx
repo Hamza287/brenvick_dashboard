@@ -3,7 +3,8 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "../models/User";
-import { API_BASE_URL } from "../utils/constants";
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
 
 interface JwtPayload {
   id?: string;
@@ -45,8 +46,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * Calls the backend API and stores user/token
    */
   const login = async (username: string, password: string) => {
+    // console.log("Attempting login to API URL:", apiUrl, username, password);
+    //   console.error("Login error:", "err.message //////////////////////");
+
     try {
-      const res = await fetch(`${API_BASE_URL}/login`, {
+      const res = await fetch(`${apiUrl}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier: username, password }),

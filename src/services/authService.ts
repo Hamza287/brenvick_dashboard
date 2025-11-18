@@ -9,6 +9,7 @@ interface AuthResponse {
 }
 
 export async function loginUser(identifier: string, password: string): Promise<User> {
+  console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
   const res = await api.post<AuthResponse>("/login", { identifier, password });
   const { success, user, token } = res.data;
 
