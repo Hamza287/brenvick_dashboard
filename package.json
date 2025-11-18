@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
  "scripts": {
-  "dev": "dotenv -e .env.development next dev -p 4000",
+  "dev": "dotenv -e .env.development next dev -p 4000 --hostname 0.0.0.0",
   "build": "dotenv -e .env.production next build",
-  "start": "dotenv -e .env.production next start -p 4000",
+  "start": "dotenv -e .env.production next start -p 4000 --hostname 0.0.0.0",
   "lint": "next lint",
-  "prod": "dotenv -e .env.production next build --turbopack && dotenv -e .env.production next start -p 4000"
+  "prod": "dotenv -e .env.production next build --turbopack && dotenv -e .env.production next start -p 4000 --hostname 0.0.0.0"
 },
   "dependencies": {
     "axios": "^1.12.2",
