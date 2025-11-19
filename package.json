@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "dotenv -e .env.development next dev",
     "build": "dotenv -e .env.production next build",
-    "start": "dotenv -e .env.production next start -p 3003",
+    "start": "dotenv -e .env.production next start -p 3002",
     "lint": "next lint",
     "prod": "dotenv -e .env.production next build --turbopack && dotenv -e .env.production next start"
   },
