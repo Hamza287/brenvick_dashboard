@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // auth/login/page.tsx
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -30,13 +31,14 @@ export default function LoginPage() {
       if (loggedUser.token) localStorage.setItem("token", loggedUser.token);
 
       // ✅ Redirect admin to dashboard
-      router.replace("/");
+      router.push("/"); // Use push instead of replace
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="flex h-screen items-center justify-center bg-black relative">
