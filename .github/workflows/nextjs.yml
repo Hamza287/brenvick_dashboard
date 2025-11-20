@@ -44,19 +44,29 @@ jobs:
       - name: Compress build folder
         run: |
           echo "📦 Creating deployment archive..."
-          tar -czf build.tar.gz \
-            .next \
-            public \
-            src \
-            jsconfig.json \
-            package.json \
-            package-lock.json \
-            next.config.mjs \
-            tsconfig.json \
-            postcss.config.mjs \
-            next-env.d.ts \
+      
+          # Create a list of files and directories to include in the archive
+          FILES_TO_ARCHIVE=".next public src jsconfig.json package.json package-lock.json next.config.mjs tsconfig.json postcss.config.mjs next-env.d.ts"
+      
+          # Initialize the tar command
+          TAR_CMD="tar -czf build.tar.gz"
+      
+          # Loop through the list of files and directories
+          for FILE in $FILES_TO_ARCHIVE; do
+            if [ -e "$FILE" ]; then
+              TAR_CMD="$TAR_CMD $FILE"  # Add file or directory to the tar command
+            else
+              echo "⚠️ Warning: '$FILE' not found, skipping..."
+            fi
+          done
+      
+          # Run the tar command to create the archive
+          echo "Running: $TAR_CMD"
+          $TAR_CMD
+      
           echo "✅ Archive contents:"
           tar -tf build.tar.gz | head -n 20
+
 
           
       - name: Verify archive contents
