@@ -48,8 +48,6 @@ jobs:
             .next \
             public \
             src \
-            LICENSE \
-            README.md \
             jsconfig.json \
             package.json \
             package-lock.json \
