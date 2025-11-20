@@ -51,7 +51,10 @@ jobs:
             jsconfig.json \
             package.json \
             package-lock.json \
-            next.config.mjs
+            next.config.mjs \
+            tsconfig.json \
+            postcss.config.mjs \
+            next-env.d.ts \
           echo "✅ Archive contents:"
           tar -tf build.tar.gz | head -n 20
 
