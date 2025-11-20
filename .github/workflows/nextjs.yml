@@ -110,7 +110,7 @@ jobs:
             fi
       
             echo "🚀 Restarting PM2 app..."
-            pm2 restart tsgmart_frontend || pm2 start npm --name "tsgmart_frontend" -- start -- --port=3001 
+            pm2 restart brenvick_dashboard || pm2 start npm --name "brenvick_dashboard" -- start -- --port=3002 
             pm2 save
       
             echo "✅ Deployment complete!"
