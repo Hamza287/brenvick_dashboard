@@ -48,12 +48,15 @@ jobs:
             .next \
             public \
             src \
+            LICENSE \
             README.md \
             jsconfig.json \
             package.json \
             package-lock.json \
+            next.config.js
           echo "✅ Archive contents:"
           tar -tf build.tar.gz | head -n 20
+
           
       - name: Verify archive contents
         run: |
