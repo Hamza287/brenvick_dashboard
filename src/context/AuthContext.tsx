@@ -45,45 +45,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * ✅ LOGIN FUNCTION
    * Calls the backend API and stores user/token
    */
-  const login = async (username: string, password: string) => {
-    // console.log("Attempting login to API URL:", apiUrl, username, password);
-    //   console.error("Login error:", "err.message //////////////////////");
+const login = async (username: string, password: string) => {
+  try {
+    const res = await fetch(`${apiUrl}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier: username, password }),
+    });
 
-    try {
-      const res = await fetch(`${apiUrl}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: username, password }),
-      });
+    if (!res.ok) throw new Error("Login failed");
 
-      if (!res.ok) throw new Error("Login failed");
-      const data = await res.json();
+    const data = await res.json();
+    const loggedUser = data.user;
+    const jwtToken = data.token;
 
-      if (!data.success) throw new Error(data.message || "Login failed");
-
-      const loggedUser = data.user as User;
-      const jwtToken = data.token as string;
-
-      // ✅ Only admin can login
-      if (loggedUser.role !== "admin") {
-        throw new Error("Access denied. Only admin can login.");
-      }
-
-      // ✅ Save to localStorage
-      localStorage.setItem("token", jwtToken);
-      localStorage.setItem("user", JSON.stringify(loggedUser));
-
-      // ✅ Update state
-      setUser(loggedUser);
-      setToken(jwtToken);
-
-      // ✅ Navigate to dashboard
-      router.replace("/");
-    } catch (err: any) {
-      console.error("Login error:", err.message);
-      throw err;
+    if (loggedUser.role !== "admin") {
+      throw new Error("Access denied. Only admin can login.");
     }
-  };
+
+    // Save token and user to localStorage
+    localStorage.setItem("token", jwtToken);
+    localStorage.setItem("user", JSON.stringify(loggedUser));
+
+    // Update React state
+    setUser(loggedUser);
+    setToken(jwtToken);
+
+    // Navigate to the admin dashboard after login
+    router.replace("/admin/dashboard");
+
+  } catch (err: any) {
+    console.error("Login error:", err.message);
+    throw err;
+  }
+};
+
 
   /**
    * ✅ LOGOUT FUNCTION
@@ -99,35 +95,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   /**
    * ✅ VALIDATE USER (runs on page reload)
    */
-  const validateUser = async () => {
-    try {
-      const storedToken = localStorage.getItem("token");
-      const storedUser = localStorage.getItem("user");
+const validateUser = async () => {
+  try {
+    const storedToken = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
 
-      if (!storedToken || !storedUser) {
-        setLoading(false);
-        return;
-      }
-
-      // ✅ Parse user
-      const parsedUser: User = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setToken(storedToken);
-
-      // ✅ Check token expiry
-      const decoded = decodeJwt<JwtPayload>(storedToken);
-      const now = Math.floor(Date.now() / 1000);
-      if (decoded.exp && decoded.exp < now) {
-        console.warn("Token expired, logging out...");
-        logout();
-      }
-    } catch (error) {
-      console.error("Token validation failed:", error);
-      logout();
-    } finally {
-      setLoading(false);
+    if (!storedToken || !storedUser) {
+      setLoading(false); // If no token or user, stop loading and exit
+      return;
     }
-  };
+
+    const parsedUser = JSON.parse(storedUser);
+    setUser(parsedUser);
+    setToken(storedToken);
+
+    // Decode and check token expiration
+    const decoded = decodeJwt(storedToken);
+    const now = Math.floor(Date.now() / 1000);
+    if (decoded.exp && decoded.exp < now) {
+      console.warn("Token expired, logging out...");
+      logout(); // Automatically log out if the token is expired
+    }
+  } catch (error) {
+    console.error("Token validation failed:", error);
+    logout();
+  } finally {
+    setLoading(false); // Set loading to false after validation is complete
+  }
+};
+
 
   useEffect(() => {
     validateUser();

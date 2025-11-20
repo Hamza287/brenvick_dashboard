@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 
 interface RoleProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles: string[]; // ✅ now string[] (e.g. ["admin"], ["user"], ["admin","user"])
+  allowedRoles: string[]; // e.g., ["admin"], ["user"], ["admin", "user"]
 }
 
 export default function RoleProtectedRoute({
@@ -15,29 +15,26 @@ export default function RoleProtectedRoute({
 }: RoleProtectedRouteProps) {
   const { user, token, loading } = useAuth();
   const router = useRouter();
+  const [isRedirecting, setIsRedirecting] = useState(false); // Prevent redundant redirects
 
   useEffect(() => {
-    // ✅ Wait for auth context to finish loading
-    if (loading) return;
+    if (loading || isRedirecting) return; // Prevent further actions if already redirecting
 
-    // ✅ No user or token → force login
+    // If user or token is missing, redirect to login
     if (!token || !user) {
-      router.replace("/auth/login");
+      router.replace("/auth/login"); // Redirect to login if not authenticated
+      setIsRedirecting(true);
       return;
     }
 
-    // ✅ Unauthorized role → redirect accordingly
+    // If user does not have the required role, redirect
     if (!allowedRoles.includes(user.role)) {
-      if (user.role === "user") {
-        // redirect customers to public site (optional)
-        window.location.href = "https://example.com/";
-      } else {
-        router.replace("/403"); // you can create an Access Denied page
-      }
+      router.replace("/403"); // Redirect to 403 if unauthorized role
+      setIsRedirecting(true);
     }
-  }, [loading, token, user, allowedRoles, router]);
+  }, [loading, token, user, allowedRoles, router, isRedirecting]);
 
-  // ✅ Show loader while checking auth
+  // Show loading state while checking auth status
   if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center text-gray-500">
@@ -46,6 +43,6 @@ export default function RoleProtectedRoute({
     );
   }
 
-  // ✅ Render content only when authorized
+  // Render children when the user has the required role and is authenticated
   return <>{children}</>;
 }
