@@ -3,7 +3,7 @@ name: Deploy Next.js Frontend to EC2
 on:
   push:
     branches:
-      - main  # change if you deploy from another branch
+      - main
 
 jobs:
   build-and-deploy:
@@ -20,62 +20,59 @@ jobs:
         with:
           node-version: 20
 
-      # 3️⃣ Clean install dependencies
+      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # 4️⃣ Fresh Next.js build (ensure clean .next)
+      # 4️⃣ Build Next.js (reads updated .env.production)
       - name: Build Next.js
         run: |
+          echo "🧪 Using environment variables:"
+          cat .env.production || echo "⚠️ .env.production not found!"
+
           rm -rf .next
           npm run build
 
-      # 5️⃣ Verify .next exists after build
+      # 5️⃣ Verify .next
       - name: Verify .next folder
         run: |
           if [ ! -d ".next" ]; then
-            echo "❌ ERROR: .next directory not found — build likely failed."
+            echo "❌ ERROR: .next directory not found — build failed."
             exit 1
           fi
-          echo "✅ .next build directory exists."
+          echo "✅ .next exists."
           ls -la .next
 
-      # 6️⃣ Compress all required files into one archive (including hidden .next)
+      # 6️⃣ Create archive INCLUDING .env files
       - name: Compress build folder
         run: |
           echo "📦 Creating deployment archive..."
-      
-          # Create a list of files and directories to include in the archive
-          FILES_TO_ARCHIVE=".next public src jsconfig.json package.json package-lock.json next.config.mjs tsconfig.json postcss.config.mjs next-env.d.ts"
-      
-          # Initialize the tar command
+
+          # include ALL .env* files (.env, .env.production, .env.local, etc.)
+          FILES_TO_ARCHIVE=".next public src .env* jsconfig.json package.json package-lock.json next.config.mjs tsconfig.json postcss.config.mjs next-env.d.ts"
+
           TAR_CMD="tar -czf build.tar.gz"
-      
-          # Loop through the list of files and directories
+
           for FILE in $FILES_TO_ARCHIVE; do
-            if [ -e "$FILE" ]; then
-              TAR_CMD="$TAR_CMD $FILE"  # Add file or directory to the tar command
+            if ls $FILE 1> /dev/null 2>&1; then
+              TAR_CMD="$TAR_CMD $FILE"
             else
-              echo "⚠️ Warning: '$FILE' not found, skipping..."
+              echo "⚠️ '$FILE' not found, skipping..."
             fi
           done
-      
-          # Run the tar command to create the archive
+
           echo "Running: $TAR_CMD"
           $TAR_CMD
-      
-          echo "✅ Archive contents:"
+
+          echo "📂 Archive preview:"
           tar -tf build.tar.gz | head -n 20
 
-
-          
-      - name: Verify archive contents
+      - name: Verify archive contains env files
         run: |
-          echo "🔍 Checking if .next exists in archive..."
-          tar -tf build.tar.gz | grep '^\.next/' || (echo "❌ .next not found in build.tar.gz!" && exit 1)
+          echo "🔍 Checking .env files in archive..."
+          tar -tf build.tar.gz | grep '.env' || echo "⚠️ No env files found!"
 
-
-      # 7️⃣ Copy build to EC2
+      # 7️⃣ Copy to EC2
       - name: Copy build to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -86,7 +83,7 @@ jobs:
           target: ${{ secrets.EC2_PATH }}
           overwrite: true
 
-      # 8️⃣ SSH into EC2 and deploy
+      # 8️⃣ SSH and deploy on EC2
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -95,22 +92,27 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-            echo "📂 Switching to project directory..."
             cd ${{ secrets.EC2_PATH }}
-      
+
             echo "📦 Extracting build..."
             tar --overwrite --no-same-owner -xzf build.tar.gz
             rm build.tar.gz
-      
-            echo "🧩 Verifying .next exists after extraction..."
+
+            echo "🧩 Checking .next..."
             if [ ! -d ".next" ]; then
-              echo "❌ ERROR: .next directory missing after extraction!"
+              echo "❌ ERROR: .next is missing after extraction!"
+              exit 1
+            fi
+
+            echo "🔍 Checking for .env.production..."
+            if [ ! -f ".env.production" ]; then
+              echo "❌ ERROR: .env.production missing after extraction!"
               ls -la
               exit 1
             fi
-      
-            echo "🚀 Restarting PM2 app..."
+
+            echo "🚀 Restarting PM2..."
             pm2 restart brenvick_dashboard || pm2 start npm --name "brenvick_dashboard" -- start -- --port=3002 
             pm2 save
-      
+
             echo "✅ Deployment complete!"
