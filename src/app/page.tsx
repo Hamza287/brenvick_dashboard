@@ -34,7 +34,7 @@ export default function DashboardPage() {
     // Optionally, you can display a loading state while the check is being done
     return <div>Loading...</div>;
   }
-
+// test CI/CD pipeline
   if (!isAdmin) {
     return <div>Access Denied</div>; // You can also redirect or show a specific message here
   }
