@@ -2,43 +2,30 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { loginUser } from "../../../services/authService";
-import { User } from "../../../models/User";
+import { useAuth } from "../../../context/AuthContext";
 
 export default function LoginPage() {
-  const router = useRouter();
+  const { login } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // auth/login/page.tsx
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
-      const loggedUser: User = await loginUser(identifier, password);
+      // 🔥 THIS IS THE FIX — use the AuthContext login
+      await login(identifier, password);
 
-      if (loggedUser.role !== "admin") {
-        throw new Error("Access denied. Only admins can log in.");
-      }
-
-      // ✅ Save user and token in localStorage
-      localStorage.setItem("user", JSON.stringify(loggedUser));
-      if (loggedUser.token) localStorage.setItem("token", loggedUser.token);
-
-      // ✅ Redirect admin to dashboard
-      router.push("/"); // Use push instead of replace
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="flex h-screen items-center justify-center bg-black relative">
@@ -81,7 +68,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-gray-400">Brenvick, All rights reserved</p>
+        <p className="mt-6 text-center text-xs text-gray-400">
+          Brenvick, All rights reserved
+        </p>
       </div>
     </div>
   );

@@ -72,7 +72,7 @@ const login = async (username: string, password: string) => {
     setToken(jwtToken);
 
     // Navigate to the admin dashboard after login
-    router.replace("/admin/dashboard");
+    router.replace("/");
 
   } catch (err: any) {
     console.error("Login error:", err.message);
