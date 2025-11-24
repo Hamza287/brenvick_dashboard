@@ -13,6 +13,7 @@ import ColorPicker from "../../../components/ui/colorpicker";
 export default function AddProductPage() {
   const [product, setProduct] = useState<Partial<Product>>({
     name: "",
+    tagline: "",    // ⭐ ADDED
     sku: "",
     description: "",
     price: 0,
@@ -70,20 +71,18 @@ export default function AddProductPage() {
   };
 
   // ⭐ VALIDATE FILES BEFORE SENDING
- // ⭐ VALIDATE FILES BEFORE SENDING
-const validateImages = () => {
-  for (const color of colors) {
-    const imgs = colorImages[color] || [];
-    const uploaded = imgs.filter((f) => f instanceof File).length;
+  const validateImages = () => {
+    for (const color of colors) {
+      const imgs = colorImages[color] || [];
+      const uploaded = imgs.filter((f) => f instanceof File).length;
 
-    if (uploaded !== 4) {
-      alert(`Color ${color} must have exactly 4 images`);
-      return false;
+      if (uploaded !== 4) {
+        alert(`Color ${color} must have exactly 4 images`);
+        return false;
+      }
     }
-  }
-  return true;
-};
-
+    return true;
+  };
 
   // ⭐ CREATE PRODUCT FUNCTION
   const handleAddProduct = async () => {
@@ -103,6 +102,7 @@ const validateImages = () => {
 
       const formData = new FormData();
       formData.append("name", product.name || "");
+      formData.append("tagline", product.tagline || ""); // ⭐ ADDED
       formData.append("description", product.description || "");
       formData.append("price", product.price?.toString() || "0");
       formData.append("category", categoryString);
@@ -111,20 +111,17 @@ const validateImages = () => {
       // ⭐ SEND COLORS
       formData.append("colors", colors.join(","));
 
-      // ⭐ SEND 4 IMAGES PER COLOR
-   // ⭐ SEND EXACT 4 IMAGES PER COLOR (ONLY if ALL 4 exist)
-colors.forEach((color) => {
-  const imgs = colorImages[color] || [];
-  const uploaded = imgs.filter((f) => f instanceof File).length;
+      // ⭐ SEND EXACT 4 IMAGES PER COLOR
+      colors.forEach((color) => {
+        const imgs = colorImages[color] || [];
+        const uploaded = imgs.filter((f) => f instanceof File).length;
 
-  // Do NOT send incomplete colors → avoid backend error
-  if (uploaded !== 4) return;
+        if (uploaded !== 4) return;
 
-  imgs.forEach((file) => {
-    formData.append(`colorImages_${color}[]`, file);
-  });
-});
-
+        imgs.forEach((file) => {
+          formData.append(`colorImages_${color}[]`, file);
+        });
+      });
 
       const response = await createProduct(formData, token);
       console.log("Product created:", response);
@@ -133,6 +130,7 @@ colors.forEach((color) => {
       // RESET FORM
       setProduct({
         name: "",
+        tagline: "",   // ⭐ RESET
         sku: "",
         description: "",
         price: 0,
@@ -174,6 +172,8 @@ colors.forEach((color) => {
               <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-12">
                 {/* LEFT SIDE */}
                 <div className="space-y-5">
+                  
+                  {/* ⭐ NAME + TAGLINE */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <TextBox
                       label="Product Name"
@@ -181,13 +181,22 @@ colors.forEach((color) => {
                       value={product.name}
                       onChange={(e) => handleChange("name", e.target.value)}
                     />
+
+                    {/* ⭐ NEW FIELD — SEMI HEADING */}
                     <TextBox
-                      label="SKU"
-                      placeholder="Enter SKU"
-                      value={product.sku}
-                      onChange={(e) => handleChange("sku", e.target.value)}
+                      label="Semi Heading"
+                      placeholder="Enter product tagline"
+                      value={product.tagline}
+                      onChange={(e) => handleChange("tagline", e.target.value)}
                     />
                   </div>
+
+                  <TextBox
+                    label="SKU"
+                    placeholder="Enter SKU"
+                    value={product.sku}
+                    onChange={(e) => handleChange("sku", e.target.value)}
+                  />
 
                   <TextBox
                     label="Description"

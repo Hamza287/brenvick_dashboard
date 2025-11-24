@@ -66,7 +66,7 @@ export function UploadCard({ onFileSelect }: UploadCardProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/png, image/jpeg, image/jpg"
+        accept="image/*"
         className="hidden"
         onChange={handleFileChange}
       />
