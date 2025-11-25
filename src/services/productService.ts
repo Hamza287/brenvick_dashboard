@@ -2,10 +2,7 @@ import { api } from "./api";
 import { Product } from "../models/Product";
 
 
-export const createProduct = async (
-  formData: FormData,
-  token: string
-): Promise<any> => {
+export const createProduct = async (formData: FormData, token: string) => {
   try {
     const res = await api.post("/products", formData, {
       headers: {
@@ -16,7 +13,7 @@ export const createProduct = async (
     return res.data;
   } catch (error: any) {
     console.error("❌ Product creation failed:", error);
-    throw new Error(error.response?.data?.message || "Failed to create product");
+    throw new Error(error.response?.data?.error || "Failed to create product");
   }
 };
 

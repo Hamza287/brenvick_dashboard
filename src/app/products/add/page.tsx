@@ -13,7 +13,7 @@ import ColorPicker from "../../../components/ui/colorpicker";
 export default function AddProductPage() {
   const [product, setProduct] = useState<Partial<Product>>({
     name: "",
-    tagline: "",    // ⭐ ADDED
+    tagline: "",
     sku: "",
     description: "",
     price: 0,
@@ -28,12 +28,14 @@ export default function AddProductPage() {
 
   const [loading, setLoading] = useState(false);
 
-  // ⭐ DEFAULT BLACK COLOR
   const [colors, setColors] = useState<string[]>(["#000000"]);
 
-  // ⭐ STORE 4 FILES PER COLOR
   const [colorImages, setColorImages] = useState<Record<string, File[]>>({
     "#000000": [undefined, undefined, undefined, undefined],
+  });
+
+  const [variantStock, setVariantStock] = useState<Record<string, number>>({
+    "#000000": 0,
   });
 
   const categoryMap: Record<number, string> = {
@@ -42,35 +44,50 @@ export default function AddProductPage() {
     3: "accessory",
   };
 
-  const handleChange = (key: keyof Product, value: any) => {
+  const handleChange = (key: keyof Product, value: any) =>
     setProduct((prev) => ({ ...prev, [key]: value }));
-  };
 
-  // ⭐ SAVE FILES FOR EACH COLOR SLOT
   const handleColorImageSelect = (color: string, file: File, index: number) => {
     setColorImages((prev) => {
       const updated = { ...prev };
-      const newSet = [...(updated[color] || [])];
-      newSet[index] = file;
-      updated[color] = newSet;
+      const arr = [...updated[color]];
+      arr[index] = file;
+      updated[color] = arr;
       return updated;
     });
   };
 
-  // ⭐ ADD / REMOVE COLOR LOGIC
   const handleColorsChange = (newColors: string[]) => {
-    const updated: Record<string, File[]> = {};
+    setColors(newColors);
 
-    newColors.forEach((color) => {
-      updated[color] =
-        colorImages[color] || [undefined, undefined, undefined, undefined];
+    setColorImages((prev) => {
+      const updated = { ...prev };
+
+      newColors.forEach((color) => {
+        if (!updated[color]) {
+          updated[color] = [undefined, undefined, undefined, undefined];
+        }
+      });
+
+      Object.keys(updated).forEach((color) => {
+        if (!newColors.includes(color)) delete updated[color];
+      });
+
+      return updated;
     });
 
-    setColors(newColors);
-    setColorImages(updated);
+    setVariantStock((prev) => {
+      const updated = { ...prev };
+      newColors.forEach((color) => {
+        if (!updated[color]) updated[color] = 0;
+      });
+      Object.keys(updated).forEach((c) => {
+        if (!newColors.includes(c)) delete updated[c];
+      });
+      return updated;
+    });
   };
 
-  // ⭐ VALIDATE FILES BEFORE SENDING
   const validateImages = () => {
     for (const color of colors) {
       const imgs = colorImages[color] || [];
@@ -84,42 +101,51 @@ export default function AddProductPage() {
     return true;
   };
 
-  // ⭐ CREATE PRODUCT FUNCTION
   const handleAddProduct = async () => {
     try {
       setLoading(true);
 
-      // ❌ Stop if missing images
       if (!validateImages()) {
         setLoading(false);
         return;
       }
 
       const token = localStorage.getItem("token") || "";
-      if (!token) throw new Error("No authorization token found");
+      if (!token) throw new Error("No authorization token");
 
       const categoryString = categoryMap[product.categoryId || 0] || "";
 
       const formData = new FormData();
+
       formData.append("name", product.name || "");
-      formData.append("tagline", product.tagline || ""); // ⭐ ADDED
+      formData.append("tagline", product.tagline || "");
       formData.append("description", product.description || "");
-      formData.append("price", product.price?.toString() || "0");
+      formData.append("price", String(product.price || 0));
       formData.append("category", categoryString);
-      formData.append("stock", product.stockOnHand?.toString() || "0");
+      formData.append("stock", String(product.stockOnHand || 0));
 
-      // ⭐ SEND COLORS
-      formData.append("colors", colors.join(","));
+      // ⭐⭐⭐ FIX #1 — CLEAN COLOR KEYS FOR BACKEND
+      const cleanedColors = colors.map((c) => c.replace("#", ""));
 
-      // ⭐ SEND EXACT 4 IMAGES PER COLOR
+      // ⭐⭐⭐ FIX #2 — CLEAN STOCK KEYS
+      const cleanedStock: Record<string, number> = {};
+      Object.keys(variantStock).forEach((key) => {
+        cleanedStock[key.replace("#", "")] = variantStock[key];
+      });
+
+      // ⭐ SEND CLEANED VALUES
+      formData.append("colors", cleanedColors.join(","));
+      formData.append("variantStock", JSON.stringify(cleanedStock));
+
+      // ⭐ FIX #3 — SEND FILES USING CLEANED COLOR CODE
       colors.forEach((color) => {
-        const imgs = colorImages[color] || [];
-        const uploaded = imgs.filter((f) => f instanceof File).length;
-
-        if (uploaded !== 4) return;
+        const safeColor = color.replace("#", "");
+        const imgs = colorImages[color];
 
         imgs.forEach((file) => {
-          formData.append(`colorImages_${color}[]`, file);
+          if (file instanceof File) {
+            formData.append(`colorImages_${safeColor}[]`, file);
+          }
         });
       });
 
@@ -127,10 +153,9 @@ export default function AddProductPage() {
       console.log("Product created:", response);
       alert("Product created successfully!");
 
-      // RESET FORM
       setProduct({
         name: "",
-        tagline: "",   // ⭐ RESET
+        tagline: "",
         sku: "",
         description: "",
         price: 0,
@@ -147,9 +172,10 @@ export default function AddProductPage() {
       setColorImages({
         "#000000": [undefined, undefined, undefined, undefined],
       });
+      setVariantStock({ "#000000": 0 });
     } catch (error: any) {
       console.error("Error:", error);
-      alert(`Error: ${error.message}`);
+      alert("Error: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -170,22 +196,17 @@ export default function AddProductPage() {
               </h2>
 
               <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-12">
-                {/* LEFT SIDE */}
                 <div className="space-y-5">
-                  
-                  {/* ⭐ NAME + TAGLINE */}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <TextBox
                       label="Product Name"
-                      placeholder="Enter product name"
                       value={product.name}
                       onChange={(e) => handleChange("name", e.target.value)}
                     />
 
-                    {/* ⭐ NEW FIELD — SEMI HEADING */}
                     <TextBox
                       label="Semi Heading"
-                      placeholder="Enter product tagline"
                       value={product.tagline}
                       onChange={(e) => handleChange("tagline", e.target.value)}
                     />
@@ -193,7 +214,6 @@ export default function AddProductPage() {
 
                   <TextBox
                     label="SKU"
-                    placeholder="Enter SKU"
                     value={product.sku}
                     onChange={(e) => handleChange("sku", e.target.value)}
                   />
@@ -213,18 +233,17 @@ export default function AddProductPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <TextBox
                       label="Base Pricing"
-                      placeholder="e.g. 1200"
-                      value={product.price?.toString() || ""}
+                      value={String(product.price)}
                       onChange={(e) =>
-                        handleChange("price", parseFloat(e.target.value))
+                        handleChange("price", Number(e.target.value))
                       }
                     />
+
                     <TextBox
-                      label="Stock"
-                      placeholder="e.g. 77"
-                      value={product.stockOnHand?.toString() || ""}
+                      label="Total Stock"
+                      value={String(product.stockOnHand)}
                       onChange={(e) =>
-                        handleChange("stockOnHand", parseInt(e.target.value))
+                        handleChange("stockOnHand", Number(e.target.value))
                       }
                     />
                   </div>
@@ -234,10 +253,10 @@ export default function AddProductPage() {
                       Category
                     </label>
                     <select
-                      className="border border-gray-300 rounded-md px-3 py-2 w-full"
+                      className="border px-3 py-2 rounded w-full"
                       value={product.categoryId}
                       onChange={(e) =>
-                        handleChange("categoryId", parseInt(e.target.value))
+                        handleChange("categoryId", Number(e.target.value))
                       }
                     >
                       <option value={0}>Select Category</option>
@@ -248,41 +267,49 @@ export default function AddProductPage() {
                   </div>
                 </div>
 
-                {/* RIGHT SIDE — IMAGES */}
                 <div className="space-y-12">
                   {colors.map((color) => (
                     <div key={color}>
-                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                        Images for color:
+                      <h3 className="text-lg font-semibold mb-3 flex gap-2">
+                        Images for:
                         <span
-                          className="px-3 py-1 rounded text-white text-xs"
+                          className="px-3 py-1 text-white text-xs rounded"
                           style={{ background: color }}
                         >
                           {color}
                         </span>
                       </h3>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        {[0, 1, 2, 3].map((index) => (
+                      <TextBox
+                        label="Stock for this color"
+                        value={String(variantStock[color])}
+                        onChange={(e) =>
+                          setVariantStock((prev) => ({
+                            ...prev,
+                            [color]: Number(e.target.value),
+                          }))
+                        }
+                        className="mb-4"
+                      />
+
+                      <div className="grid grid-cols-2 gap-4 mt-2">
+                        {[0, 1, 2, 3].map((i) => (
                           <UploadCard
-                            key={index}
+                            key={i}
                             onFileSelect={(file) =>
-                              handleColorImageSelect(color, file, index)
+                              handleColorImageSelect(color, file!, i)
                             }
                           />
                         ))}
                       </div>
+
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="mt-10 flex justify-end">
-                <Button
-                  onClick={handleAddProduct}
-                  disabled={loading}
-                  className="px-8 py-3 text-base font-semibold"
-                >
+                <Button onClick={handleAddProduct} disabled={loading}>
                   {loading ? "Adding..." : "Add Product"}
                 </Button>
               </div>

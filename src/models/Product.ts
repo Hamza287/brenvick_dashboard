@@ -3,12 +3,12 @@ export interface ProductAttributes {
 }
 
 export interface Product {
-  createdAt: string; // ISO date string
-  updatedAt: string; // ISO date string
-  id: number;        // ⭐ FORCED EXACTLY AS YOU WANT
+  createdAt: string;
+  updatedAt: string;
+  id: number;
 
   name: string;
-  tagline: string;   // ⭐ ADDED HERE EXACTLY
+  tagline: string;
 
   sku: string;
   description: string;
