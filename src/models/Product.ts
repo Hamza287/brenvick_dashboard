@@ -2,6 +2,12 @@ export interface ProductAttributes {
   [key: string]: string;
 }
 
+export interface VariantImage {
+  color: string;
+  images: string[];
+  stock: number;
+}
+
 export interface Product {
   createdAt: string;
   updatedAt: string;
@@ -25,4 +31,8 @@ export interface Product {
   stockReserved: number;
 
   isActive: boolean;
+
+  banner: string;
+  colors: string[];
+  images: VariantImage[];
 }

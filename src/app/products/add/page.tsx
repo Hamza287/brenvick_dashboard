@@ -28,6 +28,8 @@ export default function AddProductPage() {
 
   const [loading, setLoading] = useState(false);
 
+  const [banner, setBanner] = useState<File | null>(null); // ⭐ ADDED
+
   const [colors, setColors] = useState<string[]>(["#000000"]);
 
   const [colorImages, setColorImages] = useState<Record<string, File[]>>({
@@ -105,6 +107,12 @@ export default function AddProductPage() {
     try {
       setLoading(true);
 
+      if (!banner) {
+        alert("Please upload a banner image");
+        setLoading(false);
+        return;
+      }
+
       if (!validateImages()) {
         setLoading(false);
         return;
@@ -123,6 +131,9 @@ export default function AddProductPage() {
       formData.append("price", String(product.price || 0));
       formData.append("category", categoryString);
       formData.append("stock", String(product.stockOnHand || 0));
+
+      // ⭐ ADD BANNER FILE
+      formData.append("banner", banner);
 
       // ⭐⭐⭐ FIX #1 — CLEAN COLOR KEYS FOR BACKEND
       const cleanedColors = colors.map((c) => c.replace("#", ""));
@@ -167,6 +178,8 @@ export default function AddProductPage() {
         stockReserved: 0,
         isActive: true,
       });
+
+      setBanner(null); // RESET BANNER
 
       setColors(["#000000"]);
       setColorImages({
@@ -265,6 +278,22 @@ export default function AddProductPage() {
                       <option value={3}>Accessories</option>
                     </select>
                   </div>
+
+                  {/* ⭐ INSERT BANNER UPLOAD UNDER CATEGORY */}
+                  <div className="mt-4 colors-black">
+                    <label className="block text-sm mb-2 font-medium colors-black">
+                      Banner Image
+                    </label>
+
+                    <UploadCard onFileSelect={(file) => setBanner(file!)} />
+
+                    {banner && (
+                      <p className="text-sm text-green-600 mt-1">
+                        Selected: {banner.name}
+                      </p>
+                    )}
+                  </div>
+
                 </div>
 
                 <div className="space-y-12">
