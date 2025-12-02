@@ -37,7 +37,9 @@ export default function OrdersPage() {
   /* ========================================================================================
      VARIANT PARSER
      ======================================================================================== */
-  const parseVariant = (imageField: any): { color: string; image: string | null } => {
+  const parseVariant = (
+    imageField: any
+  ): { color: string; image: string | null } => {
     try {
       if (!imageField) return { color: "000000", image: null };
 
@@ -78,9 +80,7 @@ export default function OrdersPage() {
 
       // Update UI instantly
       setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId ? { ...o, status: newStatus } : o
-        )
+        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
       );
 
       setEditingId(null);
@@ -132,6 +132,10 @@ export default function OrdersPage() {
         15,
         y
       );
+      y += 6;
+
+      // ⭐ Add Phone Number
+      pdf.text(`Phone: ${order.shippingDetails.phone}`, 15, y);
       y += 12;
 
       // Items
@@ -246,7 +250,11 @@ export default function OrdersPage() {
                         ) : (
                           <>
                             {/* Normal view */}
-                            <span className={`font-bold ${statusColor(order.status)}`}>
+                            <span
+                              className={`font-bold ${statusColor(
+                                order.status
+                              )}`}
+                            >
                               {order.status}
                             </span>
 
@@ -274,10 +282,19 @@ export default function OrdersPage() {
 
                   {/* Shipping */}
                   <div className="mt-4 bg-gray-100 p-4 rounded-md">
-                    <strong>Shipping:</strong>{" "}
-                    {order.shippingDetails.firstName}{" "}
+                    <strong>Shipping:</strong> {order.shippingDetails.firstName}{" "}
                     {order.shippingDetails.lastName},{" "}
                     {order.shippingDetails.address}
+                    <br />
+                    <span className="font-semibold">City:</span>{" "}
+                    {order.shippingDetails.city}
+                    <br />
+                    <span className="font-semibold">Country:</span>{" "}
+                    {order.shippingDetails.country}
+                    <br />
+                    {/* ⭐ Add Phone Number here */}
+                    <span className="font-semibold">Phone:</span>{" "}
+                    {order.shippingDetails.phone}
                   </div>
 
                   {/* Items */}
