@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import RoleProtectedRoute from "../../../components/ProtectedRoute";
 import Sidebar from "../../../components/layout/Sidebar";
 import Card from "../../../components/ui/Card";
@@ -28,7 +28,7 @@ export default function AddProductPage() {
 
   const [loading, setLoading] = useState(false);
 
-  const [banner, setBanner] = useState<File | null>(null); // ⭐ ADDED
+  const [banner, setBanner] = useState<File | null>(null);
 
   const [colors, setColors] = useState<string[]>(["#000000"]);
 
@@ -39,6 +39,15 @@ export default function AddProductPage() {
   const [variantStock, setVariantStock] = useState<Record<string, number>>({
     "#000000": 0,
   });
+
+  // ⭐ AUTO-CALCULATE TOTAL STOCK
+  useEffect(() => {
+    const total = Object.values(variantStock).reduce(
+      (sum, n) => sum + Number(n || 0),
+      0
+    );
+    setProduct((prev) => ({ ...prev, stockOnHand: total }));
+  }, [variantStock]);
 
   const categoryMap: Record<number, string> = {
     1: "watch",
@@ -80,12 +89,17 @@ export default function AddProductPage() {
 
     setVariantStock((prev) => {
       const updated = { ...prev };
+
       newColors.forEach((color) => {
         if (!updated[color]) updated[color] = 0;
       });
+
       Object.keys(updated).forEach((c) => {
         if (!newColors.includes(c)) delete updated[c];
+
+        return updated;
       });
+
       return updated;
     });
   };
@@ -132,23 +146,21 @@ export default function AddProductPage() {
       formData.append("category", categoryString);
       formData.append("stock", String(product.stockOnHand || 0));
 
-      // ⭐ ADD BANNER FILE
+      // ⭐ BANNER
       formData.append("banner", banner);
 
-      // ⭐⭐⭐ FIX #1 — CLEAN COLOR KEYS FOR BACKEND
+      // ⭐ SEND COLORS WITHOUT #
       const cleanedColors = colors.map((c) => c.replace("#", ""));
+      formData.append("colors", cleanedColors.join(","));
 
-      // ⭐⭐⭐ FIX #2 — CLEAN STOCK KEYS
+      // ⭐ STOCK PER VARIANT (CLEAN KEYS)
       const cleanedStock: Record<string, number> = {};
       Object.keys(variantStock).forEach((key) => {
         cleanedStock[key.replace("#", "")] = variantStock[key];
       });
-
-      // ⭐ SEND CLEANED VALUES
-      formData.append("colors", cleanedColors.join(","));
       formData.append("variantStock", JSON.stringify(cleanedStock));
 
-      // ⭐ FIX #3 — SEND FILES USING CLEANED COLOR CODE
+      // ⭐ COLOR IMAGES PER VARIANT
       colors.forEach((color) => {
         const safeColor = color.replace("#", "");
         const imgs = colorImages[color];
@@ -164,6 +176,7 @@ export default function AddProductPage() {
       console.log("Product created:", response);
       alert("Product created successfully!");
 
+      // RESET FORM
       setProduct({
         name: "",
         tagline: "",
@@ -179,8 +192,7 @@ export default function AddProductPage() {
         isActive: true,
       });
 
-      setBanner(null); // RESET BANNER
-
+      setBanner(null);
       setColors(["#000000"]);
       setColorImages({
         "#000000": [undefined, undefined, undefined, undefined],
@@ -204,13 +216,10 @@ export default function AddProductPage() {
 
           <div className="flex justify-center w-full">
             <Card className="w-full max-w-[95%] xl:max-w-[1400px] p-10">
-              <h2 className="text-xl font-semibold mb-8">
-                General Information
-              </h2>
+              <h2 className="text-xl font-semibold mb-8">General Information</h2>
 
               <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-12">
                 <div className="space-y-5">
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <TextBox
                       label="Product Name"
@@ -236,9 +245,7 @@ export default function AddProductPage() {
                     textarea
                     rows={4}
                     value={product.description}
-                    onChange={(e) =>
-                      handleChange("description", e.target.value)
-                    }
+                    onChange={(e) => handleChange("description", e.target.value)}
                   />
 
                   <ColorPicker colors={colors} onChange={handleColorsChange} />
@@ -252,12 +259,12 @@ export default function AddProductPage() {
                       }
                     />
 
+                    {/* ⭐ AUTO CALCULATED, NOT EDITABLE */}
                     <TextBox
                       label="Total Stock"
                       value={String(product.stockOnHand)}
-                      onChange={(e) =>
-                        handleChange("stockOnHand", Number(e.target.value))
-                      }
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed"
                     />
                   </div>
 
@@ -279,9 +286,9 @@ export default function AddProductPage() {
                     </select>
                   </div>
 
-                  {/* ⭐ INSERT BANNER UPLOAD UNDER CATEGORY */}
-                  <div className="mt-4 colors-black">
-                    <label className="block text-sm mb-2 font-medium colors-black">
+                  {/* ⭐ BANNER UPLOAD */}
+                  <div className="mt-4">
+                    <label className="block text-sm mb-2 font-medium">
                       Banner Image
                     </label>
 
@@ -293,9 +300,9 @@ export default function AddProductPage() {
                       </p>
                     )}
                   </div>
-
                 </div>
 
+                {/* RIGHT SIDE — COLOR VARIANTS */}
                 <div className="space-y-12">
                   {colors.map((color) => (
                     <div key={color}>
@@ -331,7 +338,6 @@ export default function AddProductPage() {
                           />
                         ))}
                       </div>
-
                     </div>
                   ))}
                 </div>
