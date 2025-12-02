@@ -7,6 +7,7 @@ import { getOrders, updateOrderStatus } from "../../services/orderService";
 import { Order } from "../../models/Order";
 import jsPDF from "jspdf";
 import PDFPreviewModal from "./PDFPreviewModal";
+import namer from "color-namer";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -148,6 +149,15 @@ export default function OrdersPage() {
       order.items.forEach((item, index) => {
         const { color: variantColor } = parseVariant(item.image);
 
+        // Get readable color name from hex
+        let colorName = "";
+        try {
+          const named = namer(`#${variantColor}`);
+          colorName = named.basic[0].name || "Unknown Color";
+        } catch {
+          colorName = "Unknown Color";
+        }
+
         pdf.text(`${index + 1}. ${item.name}`, 15, y);
         y += 6;
 
@@ -157,10 +167,9 @@ export default function OrdersPage() {
         pdf.text(`Price: PKR ${item.price}`, 15, y);
         y += 6;
 
-        pdf.setFillColor(variantColor);
-        pdf.circle(180, y - 5, 5, "F");
-
-        y += 12;
+        // ⭐ Write readable color name instead of dot
+        pdf.text(`Selected Color: ${colorName} (${variantColor})`, 15, y);
+        y += 10;
 
         if (y > 260) {
           pdf.addPage();
@@ -320,12 +329,23 @@ export default function OrdersPage() {
 
                             <div className="flex items-center gap-2 mt-2">
                               <span className="text-black">Variant:</span>
+
                               <div
                                 className="w-4 h-4 rounded-full border"
-                                style={{
-                                  backgroundColor: `#${variantColor}`,
-                                }}
+                                style={{ backgroundColor: `#${variantColor}` }}
                               ></div>
+
+                              {/* Color name */}
+                              <span className="text-sm text-gray-600">
+                                {(() => {
+                                  try {
+                                    return namer(`#${variantColor}`).basic[0]
+                                      .name;
+                                  } catch {
+                                    return "Unknown Color";
+                                  }
+                                })()}
+                              </span>
                             </div>
                           </div>
                         </div>
