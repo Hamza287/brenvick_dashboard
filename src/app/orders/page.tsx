@@ -1,276 +1,333 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import RoleProtectedRoute from "../../components/ProtectedRoute";
 import Sidebar from "../../components/layout/Sidebar";
-import { getOrders } from "../../services/orderService";
+import { getOrders, updateOrderStatus } from "../../services/orderService";
 import { Order } from "../../models/Order";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import PDFPreviewModal from "./PDFPreviewModal";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Store refs for each order card
-  const orderRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
-  // ✅ Stable ref setter (avoids mid-render re-creation)
-  const setOrderRef = (id: string) => (el: HTMLDivElement | null) => {
-    orderRefs.current[id] = el;
-  };
+  // For Updating Status
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [newStatus, setNewStatus] = useState("");
 
   useEffect(() => {
-    async function fetchOrders() {
+    async function fetchData() {
       try {
-        const data = await getOrders();
-        setOrders(data);
+        const response = await getOrders();
+        setOrders(response);
       } catch (err: any) {
-        setError(err.message || "Failed to fetch orders");
+        setError(err.message || "Failed to load orders");
       } finally {
         setLoading(false);
       }
     }
-    fetchOrders();
+    fetchData();
   }, []);
 
-  // ✅ Generate PDF for a specific order card
+  /* ========================================================================================
+     VARIANT PARSER
+     ======================================================================================== */
+  const parseVariant = (imageField: any): { color: string; image: string | null } => {
+    try {
+      if (!imageField) return { color: "000000", image: null };
 
-const generatePDF = async (order) => {
-  try {
-    const pdf = new jsPDF("p", "mm", "a4"); // portrait, millimeters, A4
-    const marginLeft = 15;
-    let y = 20;
+      let parsed = imageField;
+      if (typeof imageField === "string") parsed = JSON.parse(imageField);
 
-    // 🧱 Title
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(18);
-    pdf.text("Order Summary", marginLeft, y);
-    y += 10;
+      return {
+        color: parsed.color || "000000",
+        image: parsed.images?.[0] || null,
+      };
+    } catch (err) {
+      console.error("Variant parsing failed:", imageField, err);
+      return { color: "000000", image: null };
+    }
+  };
 
-    // 🧾 Order Info
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(12);
-    pdf.text(`Order ID: ${order.id}`, marginLeft, y);
-    y += 7;
-    pdf.text(`Date: ${new Date(order.createdAt).toLocaleString()}`, marginLeft, y);
-    y += 7;
-    pdf.text(`Status: ${order.status}`, marginLeft, y);
-    y += 10;
+  /* ========================================================================================
+     UPDATE ORDER STATUS
+     ======================================================================================== */
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "Pending":
+        return "text-yellow-600";
+      case "Shipped":
+        return "text-blue-600";
+      case "Delivered":
+        return "text-green-600";
+      case "Returned":
+        return "text-red-600";
+      default:
+        return "text-gray-600";
+    }
+  };
 
-    // 🧍 Shipping Details
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Shipping Information", marginLeft, y);
-    y += 8;
-    pdf.setFont("helvetica", "normal");
-    pdf.text(
-      `Recipient: ${order.shippingDetails.firstName} ${order.shippingDetails.lastName}`,
-      marginLeft,
-      y
-    );
-    y += 6;
-    pdf.text(
-      `Address: ${order.shippingDetails.address}, ${order.shippingDetails.city}, ${order.shippingDetails.postalCode}, ${order.shippingDetails.country}`,
-      marginLeft,
-      y
-    );
-    y += 6;
-    pdf.text(`Phone: ${order.shippingDetails.phone || "N/A"}`, marginLeft, y);
-    y += 10;
+  const handleStatusSave = async (orderId: string) => {
+    try {
+      await updateOrderStatus(orderId, newStatus);
 
-    // 🛒 Items Header
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Items", marginLeft, y);
-    y += 8;
-    pdf.setFont("helvetica", "normal");
+      // Update UI instantly
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId ? { ...o, status: newStatus } : o
+        )
+      );
 
-    order.items.forEach((item, index) => {
-      const subtotal = item.quantity * item.price;
-      const line = `${index + 1}. ${item.name} | Qty: ${item.quantity} | Price: PKR ${item.price.toLocaleString()} | Subtotal: PKR ${subtotal.toLocaleString()}`;
-      pdf.text(line, marginLeft, y);
+      setEditingId(null);
+      alert("Order status updated!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update status");
+    }
+  };
+
+  /* ========================================================================================
+     PDF GENERATOR 
+     ======================================================================================== */
+  const previewPDF = (order: Order) => {
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
+      let y = 20;
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(18);
+      pdf.text("Order Summary (Preview)", 15, y);
+      y += 14;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(12);
+
+      pdf.text(`Order ID: ${order.id}`, 15, y);
+      y += 6;
+      pdf.text(`Status: ${order.status}`, 15, y);
+      y += 6;
+      pdf.text(`Date: ${new Date(order.createdAt).toLocaleString()}`, 15, y);
+      y += 12;
+
+      // Shipping
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Shipping Information", 15, y);
+      y += 8;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.text(
+        `${order.shippingDetails.firstName} ${order.shippingDetails.lastName}`,
+        15,
+        y
+      );
       y += 6;
 
-      // Page break if content exceeds page
-      if (y > 270) {
-        pdf.addPage();
-        y = 20;
-      }
-    });
+      pdf.text(
+        `${order.shippingDetails.address}, ${order.shippingDetails.city}, ${order.shippingDetails.country}`,
+        15,
+        y
+      );
+      y += 12;
 
-    y += 10;
+      // Items
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Items", 15, y);
+      y += 10;
 
-    // 💰 Summary
-    pdf.setFont("helvetica", "bold");
-    pdf.text(
-      `Total: PKR ${order.totalAmount.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
-      marginLeft,
-      y
-    );
-    y += 8;
-    pdf.setFont("helvetica", "normal");
-    pdf.text(`Payment Method: ${order.paymentMethod}`, marginLeft, y);
+      pdf.setFont("helvetica", "normal");
 
-    // 🖼 Optional: include a snapshot of the order card
-    const element = document.getElementById(`order-card-${order.id}`);
-    if (element) {
-      const canvas = await html2canvas(element, { scale: 1.5 });
-      const imgData = canvas.toDataURL("image/png");
-      pdf.addPage();
-      pdf.addImage(imgData, "PNG", 10, 10, 190, 0);
+      order.items.forEach((item, index) => {
+        const { color: variantColor } = parseVariant(item.image);
+
+        pdf.text(`${index + 1}. ${item.name}`, 15, y);
+        y += 6;
+
+        pdf.text(`Qty: ${item.quantity}`, 15, y);
+        y += 6;
+
+        pdf.text(`Price: PKR ${item.price}`, 15, y);
+        y += 6;
+
+        pdf.setFillColor(variantColor);
+        pdf.circle(180, y - 5, 5, "F");
+
+        y += 12;
+
+        if (y > 260) {
+          pdf.addPage();
+          y = 20;
+        }
+      });
+
+      y += 12;
+
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Total Amount: PKR ${order.totalAmount}`, 15, y);
+
+      const blobUrl = pdf.output("bloburl").toString();
+      setPdfUrl(blobUrl);
+      setShowPreview(true);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate PDF preview");
     }
+  };
 
-    // ✅ Save file
-    pdf.save(`Order_${order.id}.pdf`);
-  } catch (err) {
-    console.error("PDF generation failed:", err);
-    alert("Something went wrong while generating the PDF.");
-  }
-};
-
-
+  /* ========================================================================================
+     RENDER UI
+     ======================================================================================== */
   return (
     <RoleProtectedRoute allowedRoles={["admin"]}>
       <div className="flex min-h-screen bg-gray-50">
-        <Sidebar className="h-screen" />
+        <Sidebar />
 
-        {/* Scrollable Orders List */}
         <main className="flex-1 p-8 overflow-y-auto">
-          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <p className="text-gray-700 mt-2">
-            Manage and track all customer orders.
-          </p>
+          <h1 className="text-2xl font-bold">Orders</h1>
 
-          <div className="mt-6 bg-white rounded-2xl shadow p-6">
-            {loading ? (
-              <p className="text-gray-500">Loading orders...</p>
-            ) : error ? (
-              <p className="text-red-500">{error}</p>
-            ) : orders.length === 0 ? (
-              <p className="text-gray-500">No orders found.</p>
-            ) : (
-              <div className="flex flex-col space-y-8 overflow-y-auto max-h-[calc(100vh-180px)] pr-3">
-                {orders.map((order) => (
-                  <div
-                    key={order.id}
-                    ref={setOrderRef(order.id)}
-                    className="border border-gray-200 rounded-2xl shadow-sm p-6 bg-gray-50 relative"
-                  >
-                    {/* PDF Button */}
-                   <div className="flex justify-between items-center">
-  <h2 className="font-semibold text-lg text-gray-800">
-    Order ID: <span className="text-gray-700">{order.id}</span>
-  </h2>
-  <div className="flex flex-col items-end gap-2">
-    <span className="text-sm text-gray-600">
-      {new Date(order.createdAt).toLocaleString()}
-    </span>
-    <button
-      onClick={() => generatePDF(order)}
-      className="bg-red-700 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow"
-    >
-      Download PDF
-    </button>
-  </div>
-</div>
+          {loading ? (
+            <p>Loading...</p>
+          ) : error ? (
+            <p className="text-red-500">{error}</p>
+          ) : (
+            <div className="mt-6 space-y-6">
+              {orders.map((order) => (
+                <div
+                  key={order.id}
+                  className="bg-white p-6 rounded-xl shadow border text-black"
+                >
+                  {/* Header */}
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="font-semibold text-lg">
+                        Order ID: <span>{order.id}</span>
+                      </h2>
 
-                    {/* Shipping Info */}
-                    <div className="mt-3 text-sm text-gray-700 bg-white p-4 rounded-xl border border-gray-200">
-                      <p>
-                        <strong>Recipient:</strong>{" "}
-                        {order.shippingDetails.firstName}{" "}
-                        {order.shippingDetails.lastName}
+                      <p className="text-sm mt-1">
+                        Date: {new Date(order.createdAt).toLocaleString()}
                       </p>
-                      <p>
-                        <strong>Address:</strong>{" "}
-                        {order.shippingDetails.address},{" "}
-                        {order.shippingDetails.city},{" "}
-                        {order.shippingDetails.postalCode},{" "}
-                        {order.shippingDetails.country}
-                      </p>
-                      <p>
-                        <strong>Phone:</strong>{" "}
-                        {order.shippingDetails.phone || "N/A"}
-                      </p>
+
+                      {/* STATUS SECTION */}
+                      <div className="mt-2 flex items-center gap-3">
+                        <span className="font-semibold">Status:</span>
+
+                        {/* If editing this order */}
+                        {editingId === order.id ? (
+                          <>
+                            <select
+                              className="border px-2 py-1 rounded"
+                              value={newStatus}
+                              onChange={(e) => setNewStatus(e.target.value)}
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Shipped">Shipped</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Returned">Returned</option>
+                            </select>
+
+                            <button
+                              onClick={() => handleStatusSave(order.id)}
+                              className="px-3 py-1 bg-green-600 text-white rounded"
+                            >
+                              Save
+                            </button>
+
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="px-3 py-1 bg-gray-400 text-white rounded"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {/* Normal view */}
+                            <span className={`font-bold ${statusColor(order.status)}`}>
+                              {order.status}
+                            </span>
+
+                            <button
+                              onClick={() => {
+                                setEditingId(order.id);
+                                setNewStatus(order.status);
+                              }}
+                              className="px-3 py-1 bg-blue-600 text-white rounded"
+                            >
+                              Update Status
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Order Summary */}
-                    <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-800">
-                      <p>
-                        <strong>Total:</strong> ₹{order.totalAmount}
-                      </p>
-                      <p>
-                        <strong>Payment:</strong> {order.paymentMethod}
-                      </p>
-                      <p>
-                        <strong>Status:</strong>{" "}
-                        <span
-                          className={`font-semibold ${
-                            order.status === "Pending"
-                              ? "text-yellow-600"
-                              : order.status === "Delivered"
-                              ? "text-green-600"
-                              : "text-gray-600"
-                          }`}
-                        >
-                          {order.status}
-                        </span>
-                      </p>
-                      <p>
-                        <strong>Updated:</strong>{" "}
-                        {new Date(order.updatedAt).toLocaleString()}
-                      </p>
-                    </div>
+                    <button
+                      onClick={() => previewPDF(order)}
+                      className="px-4 py-2 bg-[#CD001A] text-white rounded-lg hover:bg-red-700"
+                    >
+                      Preview PDF
+                    </button>
+                  </div>
 
-                    {/* Items */}
-                    <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {order.items.map((item) => (
+                  {/* Shipping */}
+                  <div className="mt-4 bg-gray-100 p-4 rounded-md">
+                    <strong>Shipping:</strong>{" "}
+                    {order.shippingDetails.firstName}{" "}
+                    {order.shippingDetails.lastName},{" "}
+                    {order.shippingDetails.address}
+                  </div>
+
+                  {/* Items */}
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {order.items.map((item) => {
+                      const { image: variantImg, color: variantColor } =
+                        parseVariant(item.image);
+
+                      return (
                         <div
                           key={item._id}
-                          className="flex items-center gap-4 border border-gray-200 rounded-xl p-4 bg-white hover:shadow transition"
+                          className="bg-white border p-4 rounded-lg flex gap-4"
                         >
                           <img
-                            src={item.image}
-                            alt={item.name}
+                            src={variantImg || "/fallback.png"}
                             className="w-20 h-20 rounded object-cover"
                           />
-                          <div className="flex-1">
-                            <p className="font-semibold text-gray-900">
-                              {item.name}
-                            </p>
-                            <p className="text-sm text-gray-700">
-                              Qty: {item.quantity} × ₹{item.price}
-                            </p>
-                            <p className="text-sm text-gray-700">
-                              <strong>Subtotal:</strong> ₹
-                              {item.quantity * item.price}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              <strong>Category:</strong>{" "}
-                              {typeof item.product?.category === "string"
-                                ? item.product.category
-                                : "N/A"}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              <strong>Colors:</strong>{" "}
-                              {Array.isArray(item.product?.colors)
-                                ? item.product.colors.join(", ")
-                                : "N/A"}
-                            </p>
+
+                          <div>
+                            <p className="font-semibold">{item.name}</p>
+                            <p className="text-sm">Qty: {item.quantity}</p>
+                            <p className="text-sm">Price: PKR {item.price}</p>
+
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="text-black">Variant:</span>
+                              <div
+                                className="w-4 h-4 rounded-full border"
+                                style={{
+                                  backgroundColor: `#${variantColor}`,
+                                }}
+                              ></div>
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </main>
       </div>
+
+      {/* PDF Preview Modal */}
+      <PDFPreviewModal
+        open={showPreview}
+        pdfUrl={pdfUrl}
+        onClose={() => setShowPreview(false)}
+      />
     </RoleProtectedRoute>
   );
 }
