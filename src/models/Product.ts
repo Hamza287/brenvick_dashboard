@@ -31,7 +31,7 @@ export interface Product {
   stockReserved: number;
 
   isActive: boolean;
-
+  comingSoon: boolean;
   banner: string;
   colors: string[];
   images: VariantImage[];

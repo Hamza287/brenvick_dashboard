@@ -24,6 +24,7 @@ export default function AddProductPage() {
     stockOnHand: 0,
     stockReserved: 0,
     isActive: true,
+    comingSoon: false, // ⭐ NEW FIELD
   });
 
   const [loading, setLoading] = useState(false);
@@ -145,6 +146,7 @@ export default function AddProductPage() {
       formData.append("price", String(product.price || 0));
       formData.append("category", categoryString);
       formData.append("stock", String(product.stockOnHand || 0));
+      formData.append("comingSoon", String(product.comingSoon || false));
 
       // ⭐ BANNER
       formData.append("banner", banner);
@@ -190,6 +192,7 @@ export default function AddProductPage() {
         stockOnHand: 0,
         stockReserved: 0,
         isActive: true,
+        comingSoon: false, // ⭐ reset coming soon
       });
 
       setBanner(null);
@@ -216,7 +219,9 @@ export default function AddProductPage() {
 
           <div className="flex justify-center w-full">
             <Card className="w-full max-w-[95%] xl:max-w-[1400px] p-10">
-              <h2 className="text-xl font-semibold mb-8">General Information</h2>
+              <h2 className="text-xl font-semibold mb-8">
+                General Information
+              </h2>
 
               <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-12">
                 <div className="space-y-5">
@@ -245,7 +250,9 @@ export default function AddProductPage() {
                     textarea
                     rows={4}
                     value={product.description}
-                    onChange={(e) => handleChange("description", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("description", e.target.value)
+                    }
                   />
 
                   <ColorPicker colors={colors} onChange={handleColorsChange} />
@@ -267,9 +274,23 @@ export default function AddProductPage() {
                       className="bg-gray-100 cursor-not-allowed"
                     />
                   </div>
+                  {/* COMING SOON TOGGLE */}
+                  <div className="mt-4">
+                    <label className="flex items-center gap-3 text-sm font-medium text-black">
+                      <input
+                        type="checkbox"
+                        checked={product.comingSoon || false}
+                        onChange={(e) =>
+                          handleChange("comingSoon", e.target.checked)
+                        }
+                        className="w-4 h-4"
+                      />
+                      Mark as Coming Soon
+                    </label>
+                  </div>
 
                   <div>
-                    <label className="block text-sm mb-2 font-medium">
+                    <label className="block text-black mb-2 font-medium">
                       Category
                     </label>
                     <select
