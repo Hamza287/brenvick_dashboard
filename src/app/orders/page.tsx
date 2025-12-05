@@ -21,6 +21,10 @@ export default function OrdersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState("");
 
+  // Filters
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [dateSort, setDateSort] = useState("Newest");
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -37,15 +41,13 @@ export default function OrdersPage() {
 
   /* ========================================================================================
      VARIANT PARSER
-     ======================================================================================== */
+  ======================================================================================== */
   const parseVariant = (
     imageField: any
   ): { color: string; image: string | null } => {
     try {
       if (!imageField) return { color: "000000", image: null };
-
-      let parsed = imageField;
-      if (typeof imageField === "string") parsed = JSON.parse(imageField);
+      let parsed = typeof imageField === "string" ? JSON.parse(imageField) : imageField;
 
       return {
         color: parsed.color || "000000",
@@ -59,7 +61,7 @@ export default function OrdersPage() {
 
   /* ========================================================================================
      UPDATE ORDER STATUS
-     ======================================================================================== */
+  ======================================================================================== */
   const statusColor = (status: string) => {
     switch (status) {
       case "Pending":
@@ -79,7 +81,6 @@ export default function OrdersPage() {
     try {
       await updateOrderStatus(orderId, newStatus);
 
-      // Update UI instantly
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
       );
@@ -93,8 +94,8 @@ export default function OrdersPage() {
   };
 
   /* ========================================================================================
-     PDF GENERATOR 
-     ======================================================================================== */
+     PDF GENERATOR
+  ======================================================================================== */
   const previewPDF = (order: Order) => {
     try {
       const pdf = new jsPDF("p", "mm", "a4");
@@ -115,7 +116,6 @@ export default function OrdersPage() {
       pdf.text(`Date: ${new Date(order.createdAt).toLocaleString()}`, 15, y);
       y += 12;
 
-      // Shipping
       pdf.setFont("helvetica", "bold");
       pdf.text("Shipping Information", 15, y);
       y += 8;
@@ -135,11 +135,9 @@ export default function OrdersPage() {
       );
       y += 6;
 
-      // ⭐ Add Phone Number
       pdf.text(`Phone: ${order.shippingDetails.phone}`, 15, y);
       y += 12;
 
-      // Items
       pdf.setFont("helvetica", "bold");
       pdf.text("Items", 15, y);
       y += 10;
@@ -148,14 +146,11 @@ export default function OrdersPage() {
 
       order.items.forEach((item, index) => {
         const { color: variantColor } = parseVariant(item.image);
-
-        // Get readable color name from hex
         let colorName = "";
         try {
-          const named = namer(`#${variantColor}`);
-          colorName = named.basic[0].name || "Unknown Color";
+          colorName = namer(`#${variantColor}`).basic[0].name;
         } catch {
-          colorName = "Unknown Color";
+          colorName = "Unknown";
         }
 
         pdf.text(`${index + 1}. ${item.name}`, 15, y);
@@ -167,7 +162,6 @@ export default function OrdersPage() {
         pdf.text(`Price: PKR ${item.price}`, 15, y);
         y += 6;
 
-        // ⭐ Write readable color name instead of dot
         pdf.text(`Selected Color: ${colorName} (${variantColor})`, 15, y);
         y += 10;
 
@@ -178,7 +172,6 @@ export default function OrdersPage() {
       });
 
       y += 12;
-
       pdf.setFont("helvetica", "bold");
       pdf.text(`Total Amount: PKR ${order.totalAmount}`, 15, y);
 
@@ -192,8 +185,22 @@ export default function OrdersPage() {
   };
 
   /* ========================================================================================
+     FILTERED + SORTED ORDERS
+  ======================================================================================== */
+  const filteredOrders = orders
+    .filter((order) => {
+      if (statusFilter === "All") return true;
+      return order.status === statusFilter;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateSort === "Newest" ? dateB - dateA : dateA - dateB;
+    });
+
+  /* ========================================================================================
      RENDER UI
-     ======================================================================================== */
+  ======================================================================================== */
   return (
     <RoleProtectedRoute allowedRoles={["admin"]}>
       <div className="flex min-h-screen bg-gray-50">
@@ -202,22 +209,56 @@ export default function OrdersPage() {
         <main className="flex-1 p-8 overflow-y-auto">
           <h1 className="text-2xl font-bold">Orders</h1>
 
+          {/* FILTER BAR */}
+          <div className="mt-4 flex flex-wrap gap-4 items-center bg-white p-4 rounded-lg shadow border">
+
+            {/* Status Filter */}
+            <div>
+              <label className="font-semibold mr-2 text-[#CD001A]">Filter by Status:</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border px-3 py-2 rounded-md"
+              >
+                <option value="All">All</option>
+                <option value="Pending">Pending</option>
+                <option value="Shipped">Shipped</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Returned">Returned</option>
+              </select>
+            </div>
+
+            {/* Date Sort */}
+            <div>
+              <label className="font-semibold mr-2 text-[#CD001A]">Sort by Date:</label>
+              <select
+                value={dateSort}
+                onChange={(e) => setDateSort(e.target.value)}
+                className="border px-3 py-2 rounded-md"
+              >
+                <option value="Newest">Newest First</option>
+                <option value="Oldest">Oldest First</option>
+              </select>
+            </div>
+          </div>
+
+          {/* LOADING / ERROR */}
           {loading ? (
-            <p>Loading...</p>
+            <p className="mt-6">Loading...</p>
           ) : error ? (
-            <p className="text-red-500">{error}</p>
+            <p className="mt-6 text-red-500">{error}</p>
           ) : (
             <div className="mt-6 space-y-6">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <div
                   key={order.id}
                   className="bg-white p-6 rounded-xl shadow border text-black"
                 >
                   {/* Header */}
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center flex-wrap">
                     <div>
                       <h2 className="font-semibold text-lg">
-                        Order ID: <span>{order.id}</span>
+                        Order ID: {order.id}
                       </h2>
 
                       <p className="text-sm mt-1">
@@ -225,10 +266,9 @@ export default function OrdersPage() {
                       </p>
 
                       {/* STATUS SECTION */}
-                      <div className="mt-2 flex items-center gap-3">
+                      <div className="mt-2 flex items-center gap-3 flex-wrap">
                         <span className="font-semibold">Status:</span>
 
-                        {/* If editing this order */}
                         {editingId === order.id ? (
                           <>
                             <select
@@ -258,11 +298,8 @@ export default function OrdersPage() {
                           </>
                         ) : (
                           <>
-                            {/* Normal view */}
                             <span
-                              className={`font-bold ${statusColor(
-                                order.status
-                              )}`}
+                              className={`font-bold ${statusColor(order.status)}`}
                             >
                               {order.status}
                             </span>
@@ -283,7 +320,7 @@ export default function OrdersPage() {
 
                     <button
                       onClick={() => previewPDF(order)}
-                      className="px-4 py-2 bg-[#CD001A] text-white rounded-lg hover:bg-red-700"
+                      className="px-4 py-2 bg-[#CD001A] text-white rounded-lg hover:bg-red-700 mt-4 sm:mt-0"
                     >
                       Preview PDF
                     </button>
@@ -301,7 +338,6 @@ export default function OrdersPage() {
                     <span className="font-semibold">Country:</span>{" "}
                     {order.shippingDetails.country}
                     <br />
-                    {/* ⭐ Add Phone Number here */}
                     <span className="font-semibold">Phone:</span>{" "}
                     {order.shippingDetails.phone}
                   </div>
@@ -328,21 +364,19 @@ export default function OrdersPage() {
                             <p className="text-sm">Price: PKR {item.price}</p>
 
                             <div className="flex items-center gap-2 mt-2">
-                              <span className="text-black">Variant:</span>
-
+                              <span>Variant:</span>
                               <div
                                 className="w-4 h-4 rounded-full border"
                                 style={{ backgroundColor: `#${variantColor}` }}
                               ></div>
 
-                              {/* Color name */}
                               <span className="text-sm text-gray-600">
                                 {(() => {
                                   try {
                                     return namer(`#${variantColor}`).basic[0]
                                       .name;
                                   } catch {
-                                    return "Unknown Color";
+                                    return "Unknown";
                                   }
                                 })()}
                               </span>
