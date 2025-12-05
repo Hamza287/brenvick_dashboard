@@ -92,97 +92,123 @@ export default function OrdersPage() {
       alert("Failed to update status");
     }
   };
-
+  const toBase64 = (url: string): Promise<string> =>
+  fetch(url)
+    .then((res) => res.blob())
+    .then(
+      (blob) =>
+        new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        })
+    );
   /* ========================================================================================
      PDF GENERATOR
   ======================================================================================== */
-  const previewPDF = (order: Order) => {
-    try {
-      const pdf = new jsPDF("p", "mm", "a4");
-      let y = 20;
+  const previewPDF = async (order: Order) => {
+  try {
+    const pdf = new jsPDF("p", "mm", "a4");
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(18);
-      pdf.text("Order Summary (Preview)", 15, y);
-      y += 14;
+    // ⭐ Convert your public logo to Base64
+    const logoBase64 = await toBase64("/brenvickPDF.png"); 
+    // If PNG → use "/brenLogo.png"
 
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(12);
+    /* ------------------------------------------------------
+       ADD LOGO IN TOP RIGHT
+    ------------------------------------------------------ */
+    pdf.addImage(logoBase64, "PNG", 160, 10, 30, 15);
 
-      pdf.text(`Order ID: ${order.id}`, 15, y);
+    let y = 20;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text("Order Summary", 15, y);
+    y += 10;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+
+    pdf.text(`Order ID: ${order.id}`, 15, y);
+    y += 4;
+
+    pdf.text(`Date: ${new Date(order.createdAt).toLocaleString()}`, 15, y);
+    y += 8;
+
+    // Shipping Info
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Shipping Information", 15, y);
+    y += 6;
+
+    pdf.setFont("helvetica", "normal");
+
+    pdf.text(
+      `${order.shippingDetails.firstName} ${order.shippingDetails.lastName}`,
+      15,
+      y
+    );
+    y += 4;
+
+    pdf.text(
+      `${order.shippingDetails.address}, ${order.shippingDetails.city}, ${order.shippingDetails.country}`,
+      15,
+      y
+    );
+    y += 4;
+
+    pdf.text(`Phone: ${order.shippingDetails.phone}`, 15, y);
+    y += 8;
+
+    // Items
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Items", 15, y);
+    y += 6;
+
+    pdf.setFont("helvetica", "normal");
+
+    order.items.forEach((item, index) => {
+      const { color: variantColor } = parseVariant(item.image);
+
+      let colorName = "";
+      try {
+        colorName = namer(`#${variantColor}`).basic[0].name;
+      } catch {
+        colorName = "Unknown";
+      }
+
+      pdf.text(`${index + 1}. ${item.name}`, 15, y);
+      y += 4;
+
+      pdf.text(`Qty: ${item.quantity}`, 15, y);
+      y += 4;
+
+      pdf.text(`Price: PKR ${item.price}`, 15, y);
+      y += 4;
+
+      pdf.text(`Color: ${colorName} (${variantColor})`, 15, y);
       y += 6;
-      pdf.text(`Status: ${order.status}`, 15, y);
-      y += 6;
-      pdf.text(`Date: ${new Date(order.createdAt).toLocaleString()}`, 15, y);
-      y += 12;
 
-      pdf.setFont("helvetica", "bold");
-      pdf.text("Shipping Information", 15, y);
-      y += 8;
+      if (y > 260) {
+        pdf.addPage();
+        y = 20;
+      }
+    });
 
-      pdf.setFont("helvetica", "normal");
-      pdf.text(
-        `${order.shippingDetails.firstName} ${order.shippingDetails.lastName}`,
-        15,
-        y
-      );
-      y += 6;
+    y += 6;
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`Total Amount: PKR ${order.totalAmount}`, 15, y);
 
-      pdf.text(
-        `${order.shippingDetails.address}, ${order.shippingDetails.city}, ${order.shippingDetails.country}`,
-        15,
-        y
-      );
-      y += 6;
+    const blobUrl = pdf.output("bloburl").toString();
+    setPdfUrl(blobUrl);
+    setShowPreview(true);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to generate PDF preview");
+  }
+};
 
-      pdf.text(`Phone: ${order.shippingDetails.phone}`, 15, y);
-      y += 12;
 
-      pdf.setFont("helvetica", "bold");
-      pdf.text("Items", 15, y);
-      y += 10;
 
-      pdf.setFont("helvetica", "normal");
-
-      order.items.forEach((item, index) => {
-        const { color: variantColor } = parseVariant(item.image);
-        let colorName = "";
-        try {
-          colorName = namer(`#${variantColor}`).basic[0].name;
-        } catch {
-          colorName = "Unknown";
-        }
-
-        pdf.text(`${index + 1}. ${item.name}`, 15, y);
-        y += 6;
-
-        pdf.text(`Qty: ${item.quantity}`, 15, y);
-        y += 6;
-
-        pdf.text(`Price: PKR ${item.price}`, 15, y);
-        y += 6;
-
-        pdf.text(`Selected Color: ${colorName} (${variantColor})`, 15, y);
-        y += 10;
-
-        if (y > 260) {
-          pdf.addPage();
-          y = 20;
-        }
-      });
-
-      y += 12;
-      pdf.setFont("helvetica", "bold");
-      pdf.text(`Total Amount: PKR ${order.totalAmount}`, 15, y);
-
-      const blobUrl = pdf.output("bloburl").toString();
-      setPdfUrl(blobUrl);
-      setShowPreview(true);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to generate PDF preview");
-    }
-  };
 
   /* ========================================================================================
      FILTERED + SORTED ORDERS
