@@ -24,6 +24,7 @@ export default function OrdersPage() {
   // Filters
   const [statusFilter, setStatusFilter] = useState("All");
   const [dateSort, setDateSort] = useState("Newest");
+  const [phoneFilter, setPhoneFilter] = useState("");
 
   useEffect(() => {
     async function fetchData() {
@@ -47,7 +48,8 @@ export default function OrdersPage() {
   ): { color: string; image: string | null } => {
     try {
       if (!imageField) return { color: "000000", image: null };
-      let parsed = typeof imageField === "string" ? JSON.parse(imageField) : imageField;
+      let parsed =
+        typeof imageField === "string" ? JSON.parse(imageField) : imageField;
 
       return {
         color: parsed.color || "000000",
@@ -92,131 +94,138 @@ export default function OrdersPage() {
       alert("Failed to update status");
     }
   };
+
   const toBase64 = (url: string): Promise<string> =>
-  fetch(url)
-    .then((res) => res.blob())
-    .then(
-      (blob) =>
-        new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        })
-    );
+    fetch(url)
+      .then((res) => res.blob())
+      .then(
+        (blob) =>
+          new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          })
+      );
+
   /* ========================================================================================
      PDF GENERATOR
   ======================================================================================== */
   const previewPDF = async (order: Order) => {
-  try {
-    const pdf = new jsPDF("p", "mm", "a4");
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
 
-    // ⭐ Convert your public logo to Base64
-    const logoBase64 = await toBase64("/brenvickPDF.png"); 
-    // If PNG → use "/brenLogo.png"
+      // ⭐ Convert logo to Base64
+      const logoBase64 = await toBase64("/brenvickPDF.png");
 
-    /* ------------------------------------------------------
-       ADD LOGO IN TOP RIGHT
-    ------------------------------------------------------ */
-    pdf.addImage(logoBase64, "PNG", 160, 10, 30, 15);
+      // ⭐ Center the logo
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const logoWidth = 40;
+      const logoHeight = 20;
+      const centerX = (pageWidth - logoWidth) / 2;
 
-    let y = 20;
+      pdf.addImage(logoBase64, "PNG", centerX, 10, logoWidth, logoHeight);
 
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(18);
-    pdf.text("Order Summary", 15, y);
-    y += 10;
+      // Push content below the centered logo
+      let y = 40;
 
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(18);
+      pdf.text("Order Summary", 15, y);
+      y += 10;
 
-    pdf.text(`Order ID: ${order.id}`, 15, y);
-    y += 4;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
 
-    pdf.text(`Date: ${new Date(order.createdAt).toLocaleString()}`, 15, y);
-    y += 8;
-
-    // Shipping Info
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Shipping Information", 15, y);
-    y += 6;
-
-    pdf.setFont("helvetica", "normal");
-
-    pdf.text(
-      `${order.shippingDetails.firstName} ${order.shippingDetails.lastName}`,
-      15,
-      y
-    );
-    y += 4;
-
-    pdf.text(
-      `${order.shippingDetails.address}, ${order.shippingDetails.city}, ${order.shippingDetails.country}`,
-      15,
-      y
-    );
-    y += 4;
-
-    pdf.text(`Phone: ${order.shippingDetails.phone}`, 15, y);
-    y += 8;
-
-    // Items
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Items", 15, y);
-    y += 6;
-
-    pdf.setFont("helvetica", "normal");
-
-    order.items.forEach((item, index) => {
-      const { color: variantColor } = parseVariant(item.image);
-
-      let colorName = "";
-      try {
-        colorName = namer(`#${variantColor}`).basic[0].name;
-      } catch {
-        colorName = "Unknown";
-      }
-
-      pdf.text(`${index + 1}. ${item.name}`, 15, y);
+      pdf.text(`Order ID: ${order.id}`, 15, y);
       y += 4;
 
-      pdf.text(`Qty: ${item.quantity}`, 15, y);
-      y += 4;
+      pdf.text(`Date: ${new Date(order.createdAt).toLocaleString()}`, 15, y);
+      y += 8;
 
-      pdf.text(`Price: PKR ${item.price}`, 15, y);
-      y += 4;
-
-      pdf.text(`Color: ${colorName} (${variantColor})`, 15, y);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Shipping Information", 15, y);
       y += 6;
 
-      if (y > 260) {
-        pdf.addPage();
-        y = 20;
-      }
-    });
+      pdf.setFont("helvetica", "normal");
 
-    y += 6;
-    pdf.setFont("helvetica", "bold");
-    pdf.text(`Total Amount: PKR ${order.totalAmount}`, 15, y);
+      pdf.text(
+        `${order.shippingDetails.firstName} ${order.shippingDetails.lastName}`,
+        15,
+        y
+      );
+      y += 4;
 
-    const blobUrl = pdf.output("bloburl").toString();
-    setPdfUrl(blobUrl);
-    setShowPreview(true);
-  } catch (err) {
-    console.error(err);
-    alert("Failed to generate PDF preview");
-  }
-};
+      pdf.text(
+        `${order.shippingDetails.address}, ${order.shippingDetails.city}, ${order.shippingDetails.country}`,
+        15,
+        y
+      );
+      y += 4;
 
+      pdf.text(`Phone: ${order.shippingDetails.phone}`, 15, y);
+      y += 8;
 
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Items", 15, y);
+      y += 6;
 
+      pdf.setFont("helvetica", "normal");
+
+      order.items.forEach((item, index) => {
+        const { color: variantColor } = parseVariant(item.image);
+
+        let colorName = "";
+        try {
+          colorName = namer(`#${variantColor}`).basic[0].name;
+        } catch {
+          colorName = "Unknown";
+        }
+
+        pdf.text(`${index + 1}. ${item.name}`, 15, y);
+        y += 4;
+
+        pdf.text(`Qty: ${item.quantity}`, 15, y);
+        y += 4;
+
+        pdf.text(`Price: PKR ${item.price}`, 15, y);
+        y += 4;
+
+        pdf.text(`Color: ${colorName} (${variantColor})`, 15, y);
+        y += 6;
+
+        if (y > 260) {
+          pdf.addPage();
+          y = 20;
+        }
+      });
+
+      y += 6;
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Total Amount: PKR ${order.totalAmount}`, 15, y);
+
+      const blobUrl = pdf.output("bloburl").toString();
+      setPdfUrl(blobUrl);
+      setShowPreview(true);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate PDF preview");
+    }
+  };
 
   /* ========================================================================================
      FILTERED + SORTED ORDERS
   ======================================================================================== */
   const filteredOrders = orders
     .filter((order) => {
-      if (statusFilter === "All") return true;
-      return order.status === statusFilter;
+      if (statusFilter !== "All" && order.status !== statusFilter) return false;
+
+      if (phoneFilter.trim() !== "") {
+        return order.shippingDetails.phone
+          .toLowerCase()
+          .includes(phoneFilter.toLowerCase());
+      }
+
+      return true;
     })
     .sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
@@ -237,8 +246,6 @@ export default function OrdersPage() {
 
           {/* FILTER BAR */}
           <div className="mt-4 flex flex-wrap gap-4 items-center bg-white p-4 rounded-lg shadow border">
-
-            {/* Status Filter */}
             <div>
               <label className="font-semibold mr-2 text-[#CD001A]">Filter by Status:</label>
               <select
@@ -254,7 +261,6 @@ export default function OrdersPage() {
               </select>
             </div>
 
-            {/* Date Sort */}
             <div>
               <label className="font-semibold mr-2 text-[#CD001A]">Sort by Date:</label>
               <select
@@ -266,9 +272,19 @@ export default function OrdersPage() {
                 <option value="Oldest">Oldest First</option>
               </select>
             </div>
+
+            <div>
+              <label className="font-semibold mr-2 text-[#CD001A]">Search Phone:</label>
+              <input
+                type="text"
+                placeholder="03XX..."
+                value={phoneFilter}
+                onChange={(e) => setPhoneFilter(e.target.value)}
+                className="border px-3 py-2 rounded-md"
+              />
+            </div>
           </div>
 
-          {/* LOADING / ERROR */}
           {loading ? (
             <p className="mt-6">Loading...</p>
           ) : error ? (
@@ -276,11 +292,9 @@ export default function OrdersPage() {
           ) : (
             <div className="mt-6 space-y-6">
               {filteredOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="bg-white p-6 rounded-xl shadow border text-black"
-                >
-                  {/* Header */}
+                <div key={order.id} className="bg-white p-6 rounded-xl shadow border text-black">
+                  
+                  {/* HEADER */}
                   <div className="flex justify-between items-center flex-wrap">
                     <div>
                       <h2 className="font-semibold text-lg">
@@ -291,7 +305,6 @@ export default function OrdersPage() {
                         Date: {new Date(order.createdAt).toLocaleString()}
                       </p>
 
-                      {/* STATUS SECTION */}
                       <div className="mt-2 flex items-center gap-3 flex-wrap">
                         <span className="font-semibold">Status:</span>
 
@@ -324,9 +337,7 @@ export default function OrdersPage() {
                           </>
                         ) : (
                           <>
-                            <span
-                              className={`font-bold ${statusColor(order.status)}`}
-                            >
+                            <span className={`font-bold ${statusColor(order.status)}`}>
                               {order.status}
                             </span>
 
@@ -352,7 +363,7 @@ export default function OrdersPage() {
                     </button>
                   </div>
 
-                  {/* Shipping */}
+                  {/* SHIPPING */}
                   <div className="mt-4 bg-gray-100 p-4 rounded-md">
                     <strong>Shipping:</strong> {order.shippingDetails.firstName}{" "}
                     {order.shippingDetails.lastName},{" "}
@@ -368,17 +379,14 @@ export default function OrdersPage() {
                     {order.shippingDetails.phone}
                   </div>
 
-                  {/* Items */}
+                  {/* ITEMS */}
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {order.items.map((item) => {
                       const { image: variantImg, color: variantColor } =
                         parseVariant(item.image);
 
                       return (
-                        <div
-                          key={item._id}
-                          className="bg-white border p-4 rounded-lg flex gap-4"
-                        >
+                        <div key={item._id} className="bg-white border p-4 rounded-lg flex gap-4">
                           <img
                             src={variantImg || "/fallback.png"}
                             className="w-20 h-20 rounded object-cover"
@@ -399,8 +407,7 @@ export default function OrdersPage() {
                               <span className="text-sm text-gray-600">
                                 {(() => {
                                   try {
-                                    return namer(`#${variantColor}`).basic[0]
-                                      .name;
+                                    return namer(`#${variantColor}`).basic[0].name;
                                   } catch {
                                     return "Unknown";
                                   }
@@ -419,7 +426,6 @@ export default function OrdersPage() {
         </main>
       </div>
 
-      {/* PDF Preview Modal */}
       <PDFPreviewModal
         open={showPreview}
         pdfUrl={pdfUrl}
