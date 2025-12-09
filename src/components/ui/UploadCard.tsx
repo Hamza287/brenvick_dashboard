@@ -1,18 +1,32 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 
 interface UploadCardProps {
-  /** Called when a file is selected or removed */
+  /** File selected OR removed */
   onFileSelect?: (file: File | null) => void;
+
+  /** Existing URL or File (for editing mode) */
+  value?: string | File | null;
 }
 
-export function UploadCard({ onFileSelect }: UploadCardProps) {
+export function UploadCard({ onFileSelect, value }: UploadCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
+
+  // ⭐ SUPPORT URL + FILE + EMPTY
+  useEffect(() => {
+    if (typeof value === "string") {
+      setPreview(value); // URL from backend
+    } else if (value instanceof File) {
+      setPreview(URL.createObjectURL(value)); // File object preview
+    } else {
+      setPreview(null); // No image
+    }
+  }, [value]);
 
   const handleButtonClick = () => {
     fileInputRef.current?.click();
@@ -20,22 +34,29 @@ export function UploadCard({ onFileSelect }: UploadCardProps) {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
+
     if (file) {
       const url = URL.createObjectURL(file);
       setPreview(url);
       onFileSelect?.(file);
+      return;
     }
   };
 
   const handleRemoveImage = () => {
     setPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    onFileSelect?.(null);
+
+    onFileSelect?.(null); // Remove existing image
+
+    // ⭐ IMPORTANT: Removing should NOT remove the backend image
+    // ProductForm will handle untouched images on its own.
   };
 
   return (
     <Card className="relative border-dashed border-2 border-gray-300 hover:border-[var(--brand-red)] flex flex-col items-center justify-center p-4 group transition-all duration-200">
-      {/* 🗑️ Dustbin Icon (visible on hover when preview exists) */}
+
+      {/* 🗑️ Remove button */}
       {preview && (
         <button
           onClick={handleRemoveImage}
@@ -47,7 +68,7 @@ export function UploadCard({ onFileSelect }: UploadCardProps) {
         </button>
       )}
 
-      {/* Image Preview or Placeholder */}
+      {/* ⭐ Preview for URL or File */}
       {preview ? (
         <img
           src={preview}
