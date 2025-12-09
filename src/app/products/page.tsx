@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import RoleProtectedRoute from "../../components/ProtectedRoute";
 import Sidebar from "../../components/layout/Sidebar";
 import { getAllProducts, deleteProduct } from "../../services/productService";
@@ -75,7 +76,9 @@ export default function ProductsPage() {
                       {/* TOP ROW */}
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="font-semibold text-gray-800">{p.name}</p>
+                          <p className="font-semibold text-gray-800">
+                            {p.name}
+                          </p>
 
                           <div className="flex items-center gap-3 text-sm text-gray-500">
                             <span>{p.category}</span>
@@ -100,11 +103,19 @@ export default function ProductsPage() {
                           </div>
                         </div>
 
-                        {/* Price + Delete */}
+                        {/* Price + Edit + Delete */}
                         <div className="flex items-center gap-3">
                           <span className="text-sm text-gray-700 font-medium">
                             {p.price} PKR
                           </span>
+
+                          {/* ⭐ EDIT LINK */}
+                          <Link
+                            href={`/products/${p.id}/edit`}
+                            className="text-blue-600 text-sm font-semibold hover:underline"
+                          >
+                            Edit
+                          </Link>
 
                           <button
                             onClick={() => handleDelete(p.id)}

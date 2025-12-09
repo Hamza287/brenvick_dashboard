@@ -51,3 +51,28 @@ export const deleteProduct = async (id: string, token: string): Promise<void> =>
   const data = res.data;
   if (!data.success) throw new Error(data.message || "Failed to delete product");
 };
+
+export const updateProduct = async (
+  productId: string,
+  formData: FormData,
+  token: string
+) => {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/products/${productId}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // ❗ DON'T set Content-Type → browser sets boundary for FormData
+      },
+      body: formData,
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to update product");
+  }
+
+  return res.json();
+};
