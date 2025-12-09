@@ -38,6 +38,7 @@ export interface Order {
   totalAmount: number;
   paymentMethod: string;
   status: string;
+  tcsConsignmentNo:string;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
 }
